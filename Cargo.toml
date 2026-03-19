@@ -7,6 +7,4 @@ edition = "2024"
 polars = { version = "0.53.0", features = ["lazy", "csv", "replace", "polars-ops"] }
 
 [[example]]
-name = "tmp_0"
-[[example]]
 name = "adult"
