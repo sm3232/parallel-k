@@ -221,6 +221,36 @@ pub fn marital_status_hierarchy() -> CategoricalHierarchy {
 //     }
 //   },
 
+pub fn occupation_hierarchy() -> CategoricalHierarchy {
+    CategoricalHierarchy::new("*").with_children(vec![
+        CategoricalHierarchy::new("White-Collar").with_children(vec![
+            CategoricalHierarchy::new("Exec-managerial"),
+            CategoricalHierarchy::new("Prof-specialty"),
+            CategoricalHierarchy::new("Adm-clerical"),
+            CategoricalHierarchy::new("Sales"),
+            CategoricalHierarchy::new("Tech-support")
+        ]),
+ 
+        CategoricalHierarchy::new("Blue-Collar").with_children(vec![
+            CategoricalHierarchy::new("Craft-repair"),
+            CategoricalHierarchy::new("Machine-op-inspct"),
+            CategoricalHierarchy::new("Handlers-cleaners"),
+            CategoricalHierarchy::new("Transport-moving"),
+            CategoricalHierarchy::new("Farming-fishing")
+        ]),
+ 
+        CategoricalHierarchy::new("Service").with_children(vec![
+            CategoricalHierarchy::new("Other-service"),
+            CategoricalHierarchy::new("Priv-house-serv"),
+            CategoricalHierarchy::new("Protective-serv")
+        ]),
+ 
+        CategoricalHierarchy::new("Military").with_children(vec![
+            CategoricalHierarchy::new("Armed-Forces")
+        ])
+    ])
+}
+
 //   {
 //     name: "relationship",
 //     tree: {
