@@ -1,4 +1,4 @@
-use crate::taxonomy::CategoricalHierarchy;
+use crate::taxonomy_categorical::CategoricalHierarchy;
 
 //  From HTML we were given
 //  name: "workclass",
@@ -48,15 +48,17 @@ pub fn workclass_hierarchy() -> CategoricalHierarchy {
             ]),
 
         ]),
+    
+        // ********************
         // Not 100% sure about these ones, since they don't show up 
         // at all in the csv data we were given. so gonna just leave them commented out
-        CategoricalHierarchy::new("Non-Earning").with_children(vec![
-            CategoricalHierarchy::("Without-pay"),
-            CategoricalHierarchy::("Never-worked")
-        ]),
-        CategoricalHierarchy::new("Unknown").with_children(vec![
-            CategoricalHierarchy::("?")
-        ])
+        // CategoricalHierarchy::new("Non-Earning").with_children(vec![
+        //     CategoricalHierarchy::("Without-pay"),
+        //     CategoricalHierarchy::("Never-worked")
+        // ]),
+        // CategoricalHierarchy::new("Unknown").with_children(vec![
+        //     CategoricalHierarchy::("?")
+        // ])
     ])
 }
 
@@ -197,6 +199,9 @@ pub fn education_hierarchy() -> CategoricalHierarchy {
 //       ]
 //     }
 //   },
+
+
+
 //   {
 //     name: "relationship",
 //     tree: {
