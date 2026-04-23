@@ -41,7 +41,7 @@ pub fn workclass_hierarchy() -> CategoricalHierarchy {
                 CategoricalHierarchy::new("Self-emp-inc")
             ]),
 
-            CategoricalHierarchy::new("Governemnt").with_children(vec![
+            CategoricalHierarchy::new("Government").with_children(vec![
                 CategoricalHierarchy::new("Federal-gov"),
                 CategoricalHierarchy::new("Local-gov"),
                 CategoricalHierarchy::new("State-gov"),
@@ -166,6 +166,27 @@ pub fn education_hierarchy() -> CategoricalHierarchy {
 //       ]
 //     }
 //   },
+
+pub fn marital_status_hierarchy() -> CategoricalHierarchy {
+    CategoricalHierarchy::new("*").with_children(vec![
+        CategoricalHierarchy::new("Married").with_children(vec![
+            CategoricalHierarchy::new("Married-civ-spouse"),
+            CategoricalHierarchy::new("Married-AF-spouse"),
+            CategoricalHierarchy::new("Married-spouse-absent")
+        ]),
+ 
+        CategoricalHierarchy::new("Previously-Married").with_children(vec![
+            CategoricalHierarchy::new("Divorced"),
+            CategoricalHierarchy::new("Separated"),
+            CategoricalHierarchy::new("Widowed")
+        ]),
+ 
+        CategoricalHierarchy::new("Single").with_children(vec![
+            CategoricalHierarchy::new("Never-married")
+        ])
+    ])
+}
+
 //   {
 //     name: "occupation",
 //     tree: {
@@ -199,8 +220,6 @@ pub fn education_hierarchy() -> CategoricalHierarchy {
 //       ]
 //     }
 //   },
-
-
 
 //   {
 //     name: "relationship",
