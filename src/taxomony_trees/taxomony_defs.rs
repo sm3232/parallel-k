@@ -271,6 +271,26 @@ pub fn occupation_hierarchy() -> CategoricalHierarchy {
 //       ]
 //     }
 //   },
+
+pub fn relationship_hierarchy() -> CategoricalHierarchy {
+    CategoricalHierarchy::new("*").with_children(vec![
+        CategoricalHierarchy::new("Spouse").with_children(vec![
+            CategoricalHierarchy::new("Husband"),
+            CategoricalHierarchy::new("Wife")
+        ]),
+ 
+        CategoricalHierarchy::new("Child").with_children(vec![
+            CategoricalHierarchy::new("Own-child")
+        ]),
+ 
+        CategoricalHierarchy::new("Unrelated").with_children(vec![
+            CategoricalHierarchy::new("Not-in-family"),
+            CategoricalHierarchy::new("Other-relative"),
+            CategoricalHierarchy::new("Unmarried")
+        ])
+    ])
+}
+
 //   {
 //     name: "race",
 //     tree: {
