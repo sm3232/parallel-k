@@ -42,7 +42,7 @@ impl TaxomonyManager {
 
             println!("Range: {} to {}", min_val, max_val);
 
-            let taxonomy = NumericalTaxonomy::from_data_range(
+            let taxonomy = NumericalTaxonomy::create_from_data_range(
                 qi_name,
                 min_val,
                 max_val,

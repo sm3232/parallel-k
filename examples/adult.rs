@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .finish(&mut df)?;
     Ok(())
 
-    // just age for phase 1
+    // just age numerical qi for phase 1
     let numerical_qis = vec!["age"];
 
     let categorical_qis = vec![
