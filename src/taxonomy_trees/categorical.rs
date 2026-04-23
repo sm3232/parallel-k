@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 /**
-    Categorical Taxomony Stucts
+    Categorical taxanomy Stucts
     and impl
 */
 #[derive(Clone, Debug)]
@@ -13,7 +13,7 @@ pub struct CategoricalNode {
     pub parent: Option<String> 
 }
 
-pub struct CategoricalTaxomony {
+pub struct CategoricalTaxanomy {
     pub nodes: HashMap<String, CategoricalNode>,
     pub col_name: String,
     pub root_id: String
@@ -39,7 +39,7 @@ impl CategoricalHierarchy {
     }
 }
 
-impl CategoricalTaxomony {
+impl CategoricalTaxanomy {
     pub fn create_from_hierarchy(
         col_name: &str,
         hierarchy: &CategoricalHierarchy,
@@ -93,9 +93,10 @@ impl CategoricalTaxomony {
 
     pub fn find_lca(&self, values: &[String]) -> Option<String> {
         // to-do
+        None
     }
 
-    pub fn print_categorical_taxomony_tree(&self) {
+    pub fn print_categorical_taxanomy_tree(&self) {
         // to-do
     }
 }

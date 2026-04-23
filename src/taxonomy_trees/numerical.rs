@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 /**
-    Numerical Taxomony Stucts
+    Numerical taxanomy Stucts
     and impl
 */
 #[derive(Clone, Debug)]
@@ -145,7 +145,7 @@ impl NumericalTaxonomy {
         parent_ids
     }
 
-    pub fn print_numerical_taxomony_tree(&self){
+    pub fn print_numerical_taxanomy_tree(&self){
         // to-do
     }
 }

@@ -7,12 +7,12 @@ pub use categorical::{CategoricalTaxonomy, CategoricalHierarchy};
 use std::collections::HashMap;
 use polars::prelude::*;
 
-pub struct TaxomonyManager {
+pub struct TaxanomyManager {
     pub numerical_taxomonies: HashMap<String, NumericalTaxonomy>,
-    pub categorical_taxomonies: HashMap<String, CategoricalTaxomony>
+    pub categorical_taxomonies: HashMap<String, CategoricalTaxonomy>
 }
 
-impl TaxomonyManager {
+impl TaxanomyManager {
     pub fn new() -> Self {
         Self {
             numerical_taxonomies: HashMap::new(),
@@ -51,7 +51,7 @@ impl TaxomonyManager {
             );
 
             // not implemented yet
-            // taxonomy.print_numerical_taxomony_tree();
+            // taxonomy.print_numerical_taxanomy_tree();
             manager.numerical_taxonomies.insert(qi_name.to_string(), taxonomy);
         }
 
@@ -77,7 +77,7 @@ impl TaxomonyManager {
             )?;
 
             // not implemented yet
-            // taxonomy.print_categorical_taxomony_tree();
+            // taxonomy.print_categorical_taxanomy_tree();
             manager.categorical_taxonomies.insert(qi_name.to_string(), taxonomy);
         }
 

@@ -1,9 +1,12 @@
+mod taxonomy_defs;
+mod taxonomy_manager;
 use std::fs::File;
 
 use polars::prelude::*;
 use parallel_k::*;
 
-use crate::taxonomy_defs;
+use taxonomy_defs::*;
+use taxonomy_manager::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut df = CsvReadOptions::default()
@@ -56,9 +59,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("race", taxonomy_defs::race_hierarchy()),
         ("sex", taxonomy_defs::gender_hierarchy()),
         ("native-country", taxonomy_defs::native_country_hierarchy()),
-    ]
+    ];
 
-    let taxonomy_manager = taxonomy::TaxonomyManager::build_all(
+    let taxonomy_manager = taxonomy_manager::TaxonomyManager::build_all(
         &df,
         &numerical_qis.iter().map(|s| *s).collect::<Vec<_>>(),
         &categorical_qis,
