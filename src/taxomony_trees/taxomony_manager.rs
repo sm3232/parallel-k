@@ -1,4 +1,11 @@
-use polars::prelude
+pub mod numerical;
+pub mod categorical;
+ 
+pub use numerical::NumericalTaxonomy;
+pub use categorical::{CategoricalTaxonomy, CategoricalHierarchy};
+ 
+use std::collections::HashMap;
+use polars::prelude::*;
 
 pub struct TaxomonyManager {
     pub numerical_taxomonies: HashMap<String, NumericalTaxonomy>,
