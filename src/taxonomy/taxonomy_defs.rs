@@ -1,4 +1,4 @@
-use crate::categorical::CategoricalHierarchy;
+use crate::taxonomy::categorical::CategoricalHierarchy;
 
 //  From HTML we were given
 //  name: "workclass",

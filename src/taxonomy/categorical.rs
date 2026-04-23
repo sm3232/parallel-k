@@ -17,7 +17,7 @@ pub struct CategoricalTaxonomy {
     pub nodes: HashMap<String, CategoricalNode>,
     pub col_name: String,
     pub root_id: String
-}   
+}
 
 #[derive(Clone, Debug)]
 pub struct CategoricalHierarchy {
@@ -46,13 +46,19 @@ impl CategoricalTaxonomy {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut nodes = HashMap::new();
 
-        let root = Self.build_tree(
+        let root_id = Self::build_tree(
             &mut nodes,
             col_name,
             hierarchy,
             None,
             0
         );
+
+        Ok(Self {
+            nodes,
+            col_name: col_name.to_string(),
+            root_id,
+        })
     }
 
     // Recursive build with based on hierarchy def

@@ -1,7 +1,8 @@
 use std::fs::File;
 use polars::prelude::*;
 use parallel_k::*;
-use parallel_k::taxonomy_defs::*;
+use parallel_k::taxonomy::taxonomy_defs::*;
+use parallel_k::taxonomy::TaxonomyManager;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut df = CsvReadOptions::default()

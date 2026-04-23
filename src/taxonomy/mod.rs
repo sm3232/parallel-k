@@ -8,12 +8,12 @@ pub use categorical::{CategoricalTaxonomy, CategoricalHierarchy};
 use std::collections::HashMap;
 use polars::prelude::*;
 
-pub struct TaxanomyManager {
+pub struct TaxonomyManager {
     pub numerical_taxonomies: HashMap<String, NumericalTaxonomy>,
     pub categorical_taxonomies: HashMap<String, CategoricalTaxonomy>
 }
 
-impl TaxanomyManager {
+impl TaxonomyManager {
     pub fn new() -> Self {
         Self {
             numerical_taxonomies: HashMap::new(),
