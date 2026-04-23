@@ -308,6 +308,22 @@ pub fn relationship_hierarchy() -> CategoricalHierarchy {
 //       ]
 //     }
 //   },
+
+pub fn race_hierarchy() -> CategoricalHierarchy {
+    CategoricalHierarchy::new("*").with_children(vec![
+        CategoricalHierarchy::new("White").with_children(vec![
+            CategoricalHierarchy::new("White")
+        ]),
+ 
+        CategoricalHierarchy::new("Non-White").with_children(vec![
+            CategoricalHierarchy::new("Black"),
+            CategoricalHierarchy::new("Asian-Pac-Islander"),
+            CategoricalHierarchy::new("Amer-Indian-Eskimo"),
+            CategoricalHierarchy::new("Other")
+        ])
+    ])
+}
+
 //   {
 //     name: "sex",
 //     tree: {
@@ -318,6 +334,14 @@ pub fn relationship_hierarchy() -> CategoricalHierarchy {
 //       ]
 //     }
 //   },
+
+pub fn gender_hierarchy() -> CategoricalHierarchy {
+    CategoricalHierarchy::new("*").with_children(vec![
+        CategoricalHierarchy::new("Male"),
+        CategoricalHierarchy::new("Female")
+    ])
+}
+
 //   {
 //     name: "native-country",
 //     tree: {
@@ -398,3 +422,87 @@ pub fn relationship_hierarchy() -> CategoricalHierarchy {
 //       ]
 //     }
 //   }
+
+pub fn native_country_hierarchy() -> CategoricalHierarchy {
+    CategoricalHierarchy::new("*").with_children(vec![
+        CategoricalHierarchy::new("Americas").with_children(vec![
+            CategoricalHierarchy::new("North-America").with_children(vec![
+                CategoricalHierarchy::new("United-States"),
+                CategoricalHierarchy::new("Canada")
+            ]),
+ 
+            CategoricalHierarchy::new("Central-America").with_children(vec![
+                CategoricalHierarchy::new("Mexico"),
+                CategoricalHierarchy::new("Guatemala"),
+                CategoricalHierarchy::new("Honduras"),
+                CategoricalHierarchy::new("El-Salvador"),
+                CategoricalHierarchy::new("Nicaragua")
+            ]),
+ 
+            CategoricalHierarchy::new("Caribbean").with_children(vec![
+                CategoricalHierarchy::new("Cuba"),
+                CategoricalHierarchy::new("Jamaica"),
+                CategoricalHierarchy::new("Haiti"),
+                CategoricalHierarchy::new("Dominican-Republic"),
+                CategoricalHierarchy::new("Puerto-Rico"),
+                CategoricalHierarchy::new("Trinadad&Tobago"),
+                CategoricalHierarchy::new("Outlying-US")
+            ]),
+ 
+            CategoricalHierarchy::new("South-America").with_children(vec![
+                CategoricalHierarchy::new("Columbia"),
+                CategoricalHierarchy::new("Peru"),
+                CategoricalHierarchy::new("Ecuador")
+            ])
+        ]),
+ 
+        CategoricalHierarchy::new("Europe").with_children(vec![
+            CategoricalHierarchy::new("Western-Europe").with_children(vec![
+                CategoricalHierarchy::new("Germany"),
+                CategoricalHierarchy::new("England"),
+                CategoricalHierarchy::new("Italy"),
+                CategoricalHierarchy::new("France"),
+                CategoricalHierarchy::new("Portugal"),
+                CategoricalHierarchy::new("Greece"),
+                CategoricalHierarchy::new("Ireland"),
+                CategoricalHierarchy::new("Scotland"),
+                CategoricalHierarchy::new("Holand-Netherlands")
+            ]),
+ 
+            CategoricalHierarchy::new("Eastern-Europe").with_children(vec![
+                CategoricalHierarchy::new("Poland"),
+                CategoricalHierarchy::new("Yugoslavia"),
+                CategoricalHierarchy::new("Hungary")
+            ])
+        ]),
+ 
+        CategoricalHierarchy::new("Asia").with_children(vec![
+            CategoricalHierarchy::new("East-Asia").with_children(vec![
+                CategoricalHierarchy::new("China"),
+                CategoricalHierarchy::new("Japan"),
+                CategoricalHierarchy::new("Taiwan"),
+                CategoricalHierarchy::new("Hong")
+            ]),
+ 
+            CategoricalHierarchy::new("South-Asia").with_children(vec![
+                CategoricalHierarchy::new("India")
+            ]),
+ 
+            CategoricalHierarchy::new("SE-Asia").with_children(vec![
+                CategoricalHierarchy::new("Philippines"),
+                CategoricalHierarchy::new("Vietnam"),
+                CategoricalHierarchy::new("Cambodia"),
+                CategoricalHierarchy::new("Laos"),
+                CategoricalHierarchy::new("Thailand")
+            ]),
+ 
+            CategoricalHierarchy::new("Middle-East").with_children(vec![
+                CategoricalHierarchy::new("Iran")
+            ])
+        ]),
+ 
+        CategoricalHierarchy::new("Other").with_children(vec![
+            CategoricalHierarchy::new("South")
+        ])
+    ])
+}
