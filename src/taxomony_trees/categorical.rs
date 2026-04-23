@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 /**
     Categorical Taxomony Stucts
     and impl
@@ -53,7 +55,7 @@ impl CategoricalTaxomony {
         )
     }
 
-    // Recursive
+    // Recursive build with based on hierarchy def
     pub fn build_tree(
         nodes: &mut HashMap<String, CategoricalNode>,
         col_name: &str,
@@ -90,6 +92,10 @@ impl CategoricalTaxomony {
     }
 
     pub fn find_lca(&self, values: &[String]) -> Option<String> {
+        // to-do
+    }
+
+    pub fn print_categorical_taxomony_tree(&self) {
         // to-do
     }
 }

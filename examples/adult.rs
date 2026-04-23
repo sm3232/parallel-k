@@ -43,7 +43,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .include_header(true)
         .with_separator(b',')
         .finish(&mut df)?;
-    Ok(())
 
     // just age numerical qi for phase 1
     let numerical_qis = vec!["age"];
@@ -66,4 +65,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         5,   
         3,
     )?;
+
+    Ok(())
 }

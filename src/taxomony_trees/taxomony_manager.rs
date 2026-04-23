@@ -77,7 +77,7 @@ impl TaxomonyManager {
             )?;
 
             // not implemented yet
-            // taxonomy.print_tree();
+            // taxonomy.print_categorical_taxomony_tree();
             manager.categorical_taxonomies.insert(qi_name.to_string(), taxonomy);
         }
 
