@@ -13,20 +13,20 @@ pub struct CategoricalNode {
 
 pub struct CategoricalTaxomony {
     pub nodes: HashMap<String, CategoricalNode>,
-    pub name: String,
+    pub col_name: String,
     pub root_id: String
 }   
 
 #[derive(Clone, Debug)]
 pub struct CategoricalHierarchy {
-    pub name: String,
+    pub col_name: String,
     pub children: Vec<CategoricalHierarchy>,
 }
 
 impl CategoricalHierarchy {
-    pub fn new(name: &str) -> Self {
+    pub fn new(col_name: &str) -> Self {
         Self {
-            name: name.to_string(),
+            col_name: col_name.to_string(),
             children: vec![],
         }
     }
@@ -51,5 +51,45 @@ impl CategoricalTaxomony {
             None,
             0
         )
+    }
+
+    // Recursive
+    pub fn build_tree(
+        nodes: &mut HashMap<String, CategoricalNode>,
+        col_name: &str,
+        hierarchy: &CategoricalHierarchy,
+        parent_id: Option<String>,
+        level: usize
+    ) -> String {
+        let node_id = format!("{}_{}_{}", prefix, level, hierarchy.col_name);
+
+        let children_nodes_ids: Vec<String> = hierarchy
+            .children
+            .iter()
+            .map(|child| {
+                Self::build_tree(
+                    nodes,
+                    col_name,
+                    child,
+                    Some(node_id.clone()),
+                    level + 1
+                )
+            })
+            .collect();
+        
+        let node = CategoricalNode {
+            id: node_id.clone(),
+            value: hierarchy.col_name.clone(),
+            level,
+            children: children_ids,
+            parent: parent_id,
+        };
+    
+        nodes.insert(node_id.clone(), node);
+        node_id
+    }
+
+    pub fn find_lca(&self, values: &[String]) -> Option<String> {
+        // to-do
     }
 }
