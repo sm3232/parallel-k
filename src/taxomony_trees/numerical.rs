@@ -18,7 +18,7 @@ pub struct NumericalTaxonomy {
     // dynamically creating the intervals
     pub min_val: u16,
     pub max_val: u16,
-    pub col_name: string
+    pub col_name: String
 }
 
 impl NumericalTaxonomy {
@@ -81,7 +81,7 @@ impl NumericalTaxonomy {
  
         while current <= max_val {
             let bucket_end = (current + bucket_size - 1).min(max_val);
-            let id = format!("{}_{}_{}_{}", name, 0, current, bucket_end);
+            let id = format!("{}_{}_{}_{}", col_name, 0, current, bucket_end);
             leaf_node_ids.push(id.clone());
  
             nodes.insert(
@@ -108,6 +108,44 @@ impl NumericalTaxonomy {
         group_size: usize,
         level: usize,
     ) -> Vec<String> {
-        
+        let mut parent_ids = Vec::new();
+ 
+        for chunk in child_ids.chunks(group_size) {
+            if chunk.is_empty() {
+                continue;
+            }
+ 
+            // Get min and max from children
+            let min_range = nodes[&chunk[0]].range.0;
+            let max_range = nodes[&chunk[chunk.len() - 1]].range.1;
+ 
+            let parent_id = format!("{}_{}_{}_{}", col_name, level, min_range, max_range);
+            parent_ids.push(parent_id.clone());
+ 
+            // Update children to point to this parent
+            for child_id in chunk {
+                if let Some(child) = nodes.get_mut(child_id) {
+                    child.parent = Some(parent_id.clone());
+                }
+            }
+ 
+            // Create parent node
+            nodes.insert(
+                parent_id,
+                NumericalNode {
+                    id: parent_ids.last().unwrap().clone(),
+                    range: (min_range, max_range),
+                    level,
+                    children: chunk.iter().cloned().collect(),
+                    parent: None,
+                },
+            );
+        }
+ 
+        parent_ids
+    }
+
+    pub fn print_numerical_taxomony_tree(&self){
+        // to-do
     }
 }

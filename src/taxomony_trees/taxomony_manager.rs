@@ -50,7 +50,8 @@ impl TaxomonyManager {
                 grouping_factor,
             );
 
-            taxonomy.print_tree();
+            // not implemented yet
+            // taxonomy.print_numerical_taxomony_tree();
             manager.numerical_taxonomies.insert(qi_name.to_string(), taxonomy);
         }
 
@@ -75,7 +76,8 @@ impl TaxomonyManager {
                 &unique_values,
             )?;
 
-            taxonomy.print_tree();
+            // not implemented yet
+            // taxonomy.print_tree();
             manager.categorical_taxonomies.insert(qi_name.to_string(), taxonomy);
         }
 

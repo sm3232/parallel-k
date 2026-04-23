@@ -38,6 +38,18 @@ impl CategoricalHierarchy {
 }
 
 impl CategoricalTaxomony {
+    pub fn create_from_hierarchy(
+        col_name: &str,
+        hierarchy: &CategoricalHierarchy,
+    ) -> Result<Self, Box<dyn std::error:Error>> {
+        let mut nodes = HashMap::new();
 
+        let root = Self.build_tree(
+            &mut nodes,
+            col_name,
+            hierarchy,
+            None,
+            0
+        )
+    }
 }
-
