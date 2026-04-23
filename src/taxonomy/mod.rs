@@ -25,7 +25,7 @@ impl TaxonomyManager {
         df: &DataFrame,
         numerical_qis: &[&str],
         categorical_qis: &[(&str, CategoricalHierarchy)],
-        leaf_bucket_size: i32,
+        leaf_bucket_size: i64,
         grouping_factor: usize,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut manager = Self::new();
@@ -36,7 +36,7 @@ impl TaxonomyManager {
             println!("\n--- {} ---", qi_name);
 
             let col = df.column(qi_name)?;
-            let series = col.i32()?;
+            let series = col.i64()?;
             
             let min_val = series.min().unwrap_or(0);
             let max_val = series.max().unwrap_or(100);

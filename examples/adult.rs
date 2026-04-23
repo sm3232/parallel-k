@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("occupation", occupation_hierarchy()),
         ("relationship", relationship_hierarchy()),
         ("race", race_hierarchy()),
-        ("sex", gender_hierarchy()),
+        ("gender", gender_hierarchy()),
         ("native-country", native_country_hierarchy()),
     ];
 

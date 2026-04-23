@@ -6,7 +6,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug)]
 pub struct NumericalNode {
     pub id: String,
-    pub range: (i32, i32),
+    pub range: (i64, i64),
     pub level: usize,
     pub children: Vec<String>,
     pub parent: Option<String>,
@@ -16,17 +16,17 @@ pub struct NumericalTaxonomy {
     pub nodes: HashMap<String, NumericalNode>,
     // These min and max will be for
     // dynamically creating the intervals
-    pub min_val: i32,
-    pub max_val: i32,
+    pub min_val: i64,
+    pub max_val: i64,
     pub col_name: String
 }
 
 impl NumericalTaxonomy {
     pub fn create_from_data_range(
         col_name: &str,
-        min_val: i32,
-        max_val: i32,
-        leaf_bucket_size: i32,
+        min_val: i64,
+        max_val: i64,
+        leaf_bucket_size: i64,
         grouping_factor: usize,
     ) -> Self {
         let mut nodes = HashMap::new();
@@ -72,9 +72,9 @@ impl NumericalTaxonomy {
     pub fn create_leaf_level(
         nodes: &mut HashMap<String, NumericalNode>,
         col_name: &str,
-        min_val: i32,
-        max_val: i32,
-        bucket_size: i32,
+        min_val: i64,
+        max_val: i64,
+        bucket_size: i64,
     ) -> Vec<String> {
         let mut leaf_node_ids = Vec::new();
         let mut current = min_val;
