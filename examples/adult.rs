@@ -3,6 +3,8 @@ use std::fs::File;
 use polars::prelude::*;
 use parallel_k::*;
 
+use crate::taxonomy_defs;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut df = CsvReadOptions::default()
         .with_has_header(true)
@@ -42,4 +44,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_separator(b',')
         .finish(&mut df)?;
     Ok(())
+
+    // just age for phase 1
+    let numerical_qis = vec!["age"];
+
+    let categorical_qis = vec![
+        ("workclass", taxonomy_defs::workclass_hierarchy()),
+        ("education", taxonomy_defs::education_hierarchy()),
+        ("marital-status", taxonomy_defs::marital_status_hierarchy()),
+        ("occupation", taxonomy_defs::occupation_hierarchy()),
+        ("relationship", taxonomy_defs::relationship_hierarchy()),
+        ("race", taxonomy_defs::race_hierarchy()),
+        ("sex", taxonomy_defs::gender_hierarchy()),
+        ("native-country", taxonomy_defs::native_country_hierarchy()),
+    ]
+
+    let taxonomy_manager = taxonomy::TaxonomyManager::build_all(
+        &df,
+        &numerical_qis.iter().map(|s| *s).collect::<Vec<_>>(),
+        &categorical_qis,
+        5,   
+        3,
+    )?;
 }
