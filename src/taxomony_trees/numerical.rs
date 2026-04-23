@@ -71,21 +71,43 @@ impl NumericalTaxonomy {
 
     pub fn create_leaf_level(
         nodes: &mut HashMap<String, NumericalNode>,
-        name: &str,
+        col_name: &str,
         min_val: i32,
         max_val: i32,
         bucket_size: i32,
     ) -> Vec<String> {
-
+        let mut leaf_node_ids = Vec::new();
+        let mut current = min_val;
+ 
+        while current <= max_val {
+            let bucket_end = (current + bucket_size - 1).min(max_val);
+            let id = format!("{}_{}_{}_{}", name, 0, current, bucket_end);
+            leaf_node_ids.push(id.clone());
+ 
+            nodes.insert(
+                id,
+                NumericalNode {
+                    id: leaf_node_ids.last().unwrap().clone(),
+                    range: (current, bucket_end),
+                    level: 0,
+                    children: vec![],
+                    parent: None,
+                },
+            );
+ 
+            current = bucket_end + 1;
+        }
+ 
+        leaf_node_ids
     }
 
     pub fn create_parent_level(
         nodes: &mut HashMap<String, NumericalNode>,
-        name: &str,
+        col_name: &str,
         child_ids: &[String],
         group_size: usize,
         level: usize,
     ) -> Vec<String> {
-
+        
     }
 }
