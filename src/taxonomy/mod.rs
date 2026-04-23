@@ -1,5 +1,6 @@
-pub mod numerical;
 pub mod categorical;
+pub mod numerical;
+pub mod taxonomy_defs;
  
 pub use numerical::NumericalTaxonomy;
 pub use categorical::{CategoricalTaxonomy, CategoricalHierarchy};
@@ -8,8 +9,8 @@ use std::collections::HashMap;
 use polars::prelude::*;
 
 pub struct TaxanomyManager {
-    pub numerical_taxomonies: HashMap<String, NumericalTaxonomy>,
-    pub categorical_taxomonies: HashMap<String, CategoricalTaxonomy>
+    pub numerical_taxonomies: HashMap<String, NumericalTaxonomy>,
+    pub categorical_taxonomies: HashMap<String, CategoricalTaxonomy>
 }
 
 impl TaxanomyManager {
@@ -70,10 +71,9 @@ impl TaxanomyManager {
 
             println!("Found {} unique values", unique_values.len());
 
-            let taxonomy = CategoricalTaxonomy::from_hierarchy(
+            let taxonomy = CategoricalTaxonomy::create_from_hierarchy(
                 qi_name,
                 &hierarchy,
-                &unique_values,
             )?;
 
             // not implemented yet

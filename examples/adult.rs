@@ -1,12 +1,7 @@
-mod taxonomy_defs;
-mod taxonomy_manager;
 use std::fs::File;
-
 use polars::prelude::*;
 use parallel_k::*;
-
-use taxonomy_defs::*;
-use taxonomy_manager::*;
+use parallel_k::taxonomy_defs::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut df = CsvReadOptions::default()
@@ -51,17 +46,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let numerical_qis = vec!["age"];
 
     let categorical_qis = vec![
-        ("workclass", taxonomy_defs::workclass_hierarchy()),
-        ("education", taxonomy_defs::education_hierarchy()),
-        ("marital-status", taxonomy_defs::marital_status_hierarchy()),
-        ("occupation", taxonomy_defs::occupation_hierarchy()),
-        ("relationship", taxonomy_defs::relationship_hierarchy()),
-        ("race", taxonomy_defs::race_hierarchy()),
-        ("sex", taxonomy_defs::gender_hierarchy()),
-        ("native-country", taxonomy_defs::native_country_hierarchy()),
+        ("workclass", workclass_hierarchy()),
+        ("education", education_hierarchy()),
+        ("marital-status", marital_status_hierarchy()),
+        ("occupation", occupation_hierarchy()),
+        ("relationship", relationship_hierarchy()),
+        ("race", race_hierarchy()),
+        ("sex", gender_hierarchy()),
+        ("native-country", native_country_hierarchy()),
     ];
 
-    let taxonomy_manager = taxonomy_manager::TaxonomyManager::build_all(
+    let taxonomy_manager = TaxonomyManager::build_all(
         &df,
         &numerical_qis.iter().map(|s| *s).collect::<Vec<_>>(),
         &categorical_qis,

@@ -13,7 +13,7 @@ pub struct CategoricalNode {
     pub parent: Option<String> 
 }
 
-pub struct CategoricalTaxanomy {
+pub struct CategoricalTaxonomy {
     pub nodes: HashMap<String, CategoricalNode>,
     pub col_name: String,
     pub root_id: String
@@ -39,11 +39,11 @@ impl CategoricalHierarchy {
     }
 }
 
-impl CategoricalTaxanomy {
+impl CategoricalTaxonomy {
     pub fn create_from_hierarchy(
         col_name: &str,
         hierarchy: &CategoricalHierarchy,
-    ) -> Result<Self, Box<dyn std::error:Error>> {
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut nodes = HashMap::new();
 
         let root = Self.build_tree(
@@ -52,7 +52,7 @@ impl CategoricalTaxanomy {
             hierarchy,
             None,
             0
-        )
+        );
     }
 
     // Recursive build with based on hierarchy def
@@ -63,9 +63,9 @@ impl CategoricalTaxanomy {
         parent_id: Option<String>,
         level: usize
     ) -> String {
-        let node_id = format!("{}_{}_{}", prefix, level, hierarchy.col_name);
+        let node_id = format!("{}_{}_{}", col_name, level, hierarchy.col_name);
 
-        let children_nodes_ids: Vec<String> = hierarchy
+        let children_node_ids: Vec<String> = hierarchy
             .children
             .iter()
             .map(|child| {
@@ -83,7 +83,7 @@ impl CategoricalTaxanomy {
             id: node_id.clone(),
             value: hierarchy.col_name.clone(),
             level,
-            children: children_ids,
+            children: children_node_ids,
             parent: parent_id,
         };
     
@@ -91,10 +91,10 @@ impl CategoricalTaxanomy {
         node_id
     }
 
-    pub fn find_lca(&self, values: &[String]) -> Option<String> {
-        // to-do
-        None
-    }
+    // pub fn find_lca(&self, values: &[String]) -> Option<String> {
+    //     // to-do
+    //     None
+    // }
 
     pub fn print_categorical_taxanomy_tree(&self) {
         // to-do

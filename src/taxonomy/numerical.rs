@@ -5,31 +5,31 @@ use std::collections::HashMap;
 */
 #[derive(Clone, Debug)]
 pub struct NumericalNode {
-    pub id: Sting,
-    pub range: (u16, u16)
+    pub id: String,
+    pub range: (i32, i32),
     pub level: usize,
     pub children: Vec<String>,
     pub parent: Option<String>,
 }
 
 pub struct NumericalTaxonomy {
-    pub node: HashMap<String, TaxanomyNode>,
+    pub nodes: HashMap<String, NumericalNode>,
     // These min and max will be for
     // dynamically creating the intervals
-    pub min_val: u16,
-    pub max_val: u16,
+    pub min_val: i32,
+    pub max_val: i32,
     pub col_name: String
 }
 
 impl NumericalTaxonomy {
     pub fn create_from_data_range(
         col_name: &str,
-        min_val: u16,
-        max_val: u16,
-        leaf_bucket_size: u16,
+        min_val: i32,
+        max_val: i32,
+        leaf_bucket_size: i32,
         grouping_factor: usize,
     ) -> Self {
-        let mut tree_nodes = HashMap::new();
+        let mut nodes = HashMap::new();
 
         // building bottom-up
         let leaf_nodes = Self::create_leaf_level(
@@ -38,7 +38,7 @@ impl NumericalTaxonomy {
             min_val,
             max_val,
             leaf_bucket_size,
-        )
+        );
 
         let mut current_level_nodes = leaf_nodes;
         let mut current_level = 0;
