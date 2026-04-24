@@ -13,6 +13,7 @@ pub struct CategoricalNode {
     pub parent: Option<String> 
 }
 
+#[derive(Clone, Debug)]
 pub struct CategoricalTaxonomy {
     pub nodes: HashMap<String, CategoricalNode>,
     pub col_name: String,
@@ -103,6 +104,24 @@ impl CategoricalTaxonomy {
     // }
 
     pub fn print_categorical_taxanomy_tree(&self) {
-        // to-do
+        if let Some(root_node) = self.nodes.get(&self.root_id) {
+            self.print_catgeorical_taxonomy_recurse(&self.root_id, root_node, 0);
+        } else {
+            for (id, node) in self.nodes.iter().filter(|(_, n)| n.level == 0) {
+                self.print_catgeorical_taxonomy_recurse(id, node, 0);
+            }
+        }
+    }
+
+    pub fn print_catgeorical_taxonomy_recurse(&self, id: &String, node: &CategoricalNode, depth: usize) {
+        let indent = "  ".repeat(depth);
+
+        println!("{}[Level {}] {} (ID: {})", indent, depth, node.value, id);
+
+        for child_id in &node.children {
+            if let Some(child_node) = self.nodes.get(child_id) {
+                self.print_catgeorical_taxonomy_recurse(child_id, child_node, depth + 1);
+            }
+        }
     }
 }
