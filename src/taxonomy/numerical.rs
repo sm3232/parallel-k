@@ -12,6 +12,7 @@ pub struct NumericalNode {
     pub parent: Option<String>,
 }
 
+#[derive(Debug)]
 pub struct NumericalTaxonomy {
     pub nodes: HashMap<String, NumericalNode>,
     // These min and max will be for
@@ -146,6 +147,6 @@ impl NumericalTaxonomy {
     }
 
     pub fn print_numerical_taxanomy_tree(&self){
-        // to-do
+        println!("{:?}", self);
     }
 }

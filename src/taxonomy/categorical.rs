@@ -55,6 +55,11 @@ impl CategoricalTaxonomy {
             0
         );
 
+        let max_level = nodes.values().map(|n| n.level).max().unwrap_or(0);
+        for node in nodes.values_mut() {
+            node.level = max_level - node.level;
+        }
+
         Ok(Self {
             nodes,
             col_name: col_name.to_string(),
@@ -116,7 +121,7 @@ impl CategoricalTaxonomy {
     pub fn print_catgeorical_taxonomy_recurse(&self, id: &String, node: &CategoricalNode, depth: usize) {
         let indent = "  ".repeat(depth);
 
-        println!("{}[Level {}] {} (ID: {})", indent, depth, node.value, id);
+        println!("{}[Level {}] {} (ID: {})", indent, node.level, node.value, id);
 
         for child_id in &node.children {
             if let Some(child_node) = self.nodes.get(child_id) {
