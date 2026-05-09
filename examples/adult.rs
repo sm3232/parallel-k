@@ -1,6 +1,7 @@
 use std::fs::File;
 
 use polars::prelude::*;
+use parallel_k::data::{Dataset, QuasiIdentifiers, QIType};
 
 #[path = "./util/util.rs"]
 mod util;
@@ -17,6 +18,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .include_header(true)
         .with_separator(b',')
         .finish(&mut df)?;
+
+    // just age numerical qi for phase 1
+    let qis = QuasiIdentifiers::from_column_names(&[
+        ("age", QIType::Numerical { bucket_size: 5 }),
+        ("workclass", QIType::Categorical { json_path: "taxonomies/workclass.json".into() }),
+        ("education", QIType::Categorical { json_path: "taxonomies/education.json".into() }),
+    ]);
+
+    let dataset = Dataset::build(&df, &qis)?;
 
     Ok(())
 }
