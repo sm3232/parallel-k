@@ -24,6 +24,7 @@ pub struct CategoricalTaxonomy {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CategoricalHierarchy {
    pub col_name: String,
+   #[serde(default)]
    pub children: Vec<CategoricalHierarchy>,
 }
 
