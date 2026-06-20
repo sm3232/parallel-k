@@ -1,0 +1,36 @@
+{
+  "col_name": "*",
+  "children": [
+    {
+      "col_name": "Married",
+      "children": [
+        {
+          "col_name": "Married-civ-spouse"
+        },
+        {
+          "col_name": "Married-AF-spouse"
+        },
+        {
+          "col_name": "Married-spouse-absent"
+        }
+      ]
+    },
+    {
+      "col_name": "Previously-Married",
+      "children": [
+        {
+          "col_name": "Divorced"
+        },
+        {
+          "col_name": "Separated"
+        },
+        {
+          "col_name": "Widowed"
+        }
+      ]
+    },
+    {
+      "col_name": "Never-married"
+    }
+  ]
+}

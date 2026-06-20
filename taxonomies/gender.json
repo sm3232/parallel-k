@@ -1,0 +1,11 @@
+{
+  "col_name": "*",
+  "children": [
+    {
+      "col_name": "Male"
+    },
+    {
+      "col_name": "Female"
+    }
+  ]
+}

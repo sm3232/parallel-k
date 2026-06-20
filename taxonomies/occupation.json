@@ -1,0 +1,62 @@
+{
+  "col_name": "*",
+  "children": [
+    {
+      "col_name": "White-Collar",
+      "children": [
+        {
+          "col_name": "Exec-managerial"
+        },
+        {
+          "col_name": "Prof-specialty"
+        },
+        {
+          "col_name": "Adm-clerical"
+        },
+        {
+          "col_name": "Sales"
+        },
+        {
+          "col_name": "Tech-support"
+        }
+      ]
+    },
+    {
+      "col_name": "Blue-Collar",
+      "children": [
+        {
+          "col_name": "Craft-repair"
+        },
+        {
+          "col_name": "Machine-op-inspct"
+        },
+        {
+          "col_name": "Handlers-cleaners"
+        },
+        {
+          "col_name": "Transport-moving"
+        },
+        {
+          "col_name": "Farming-fishing"
+        }
+      ]
+    },
+    {
+      "col_name": "Service",
+      "children": [
+        {
+          "col_name": "Other-service"
+        },
+        {
+          "col_name": "Priv-house-serv"
+        },
+        {
+          "col_name": "Protective-serv"
+        }
+      ]
+    },
+    {
+      "col_name": "Armed-Forces"
+    }
+  ]
+}
