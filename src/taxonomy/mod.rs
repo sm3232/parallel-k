@@ -22,6 +22,16 @@ impl TaxonomyManager {
         }
     }
 
+    pub fn get_qi_height(&self, qi: String) -> usize {
+        if let Some(nqi) = self.numerical_taxonomies.get(&qi) {
+            nqi.nodes.values().max_by_key(|x| x.level).unwrap().level
+        } else if let Some(cqi) = self.categorical_taxonomies.get(&qi) {
+            cqi.nodes.values().max_by_key(|x| x.level).unwrap().level
+        } else {
+            0
+        }
+    }
+
     pub fn build_from_qis(
         df: &DataFrame,
         qis: &QuasiIdentifiers

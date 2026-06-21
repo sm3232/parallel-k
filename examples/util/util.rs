@@ -57,12 +57,12 @@ pub fn verify_k_anonymity(df: &DataFrame, qi_columns: &[&str], k: usize) -> bool
                 .expect("QI column must exist in DataFrame")
                 .as_series()
                 .expect("column must be a Series")
-                .str()
-                .expect("QI column must be String dtype after anonymization")
-                .get(row)
-                .unwrap_or("null");
+                .cast(&DataType::String)
+                .expect("QI column must be convertible to a String dtype after anonymization");
 
-            key.push_str(val);
+            key.push_str(val.str().expect(
+                "QI column must a String dtype after anonymization"
+            ).get(row).unwrap_or("null"));
             key.push('|');
         }
 

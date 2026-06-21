@@ -18,7 +18,8 @@ pub struct CategoricalNode {
 pub struct CategoricalTaxonomy {
    pub nodes: HashMap<String, CategoricalNode>,
    pub col_name: String,
-   pub root_id: String
+   pub root_id: String,
+    cache: HashMap<String, String>
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -62,10 +63,19 @@ impl CategoricalTaxonomy {
             node.level = max_level - node.level;
         }
 
+        let mut cache: HashMap<String, String> = HashMap::default();
+
+        for node in &nodes {
+            if let Some(parent) = &node.1.parent {
+                cache.insert(node.1.value.clone(), nodes.get(parent).unwrap().value.clone());
+            }
+        }
+
         Ok(Self {
             nodes,
             col_name: col_name.to_string(),
             root_id,
+            cache
         })
     }
 
@@ -162,6 +172,13 @@ impl CategoricalTaxonomy {
                 .value
                 .clone(),
         )
+    }
+
+    pub fn generalize(&self, value: String) -> String {
+        if let Some(cached) = self.cache.get(&value) {
+            return cached.to_owned();
+        }
+        value
     }
 
     pub fn print_categorical_taxanomy_tree(&self) {
