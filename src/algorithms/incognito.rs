@@ -651,7 +651,7 @@ impl Incognito {
         taxonomy_man: TaxonomyManager,
         qis: QuasiIdentifiers,
         k: u32
-    ) -> Result<DataFrame, PolarsError> {
+    ) -> Result<DataFrame, AlgorithmError> {
 
         lattice_man.next_entry();
 
@@ -675,7 +675,7 @@ impl Incognito {
 
         let successful = lattice_man.get_successful();
         if successful.is_empty() {
-            panic!(); // nothing worked
+            return Err("no successful anonymizations found.".into());
         }
         let selection = successful
             .iter()
