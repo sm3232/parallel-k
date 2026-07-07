@@ -10,6 +10,7 @@ impl std::hash::Hash for QuasiIdentifier {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.column_name.hash(state);
         self.index.hash(state);
+        self.qi_type.hash(state);
     }
 }
 impl std::cmp::PartialEq for QuasiIdentifier {
@@ -18,7 +19,7 @@ impl std::cmp::PartialEq for QuasiIdentifier {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum QIType {
     Numerical { leaf_bucket_size: i64 },
     Categorical { path_to_json_hierarchy: String }
