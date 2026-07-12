@@ -80,21 +80,6 @@ pub struct LatticeEntry {
     pub freq_table: Arc<FrequencyTable>,
     pub parent: Option<Arc<LatticeEntry>>,
 }
-impl std::fmt::Debug for LatticeEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LatticeEntry")
-            .field("root", &self.root)
-            .finish()
-    }
-}
-impl std::fmt::Display for LatticeEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for k in self.root.keys() {
-            write!(f, "{}:{}", k.column_name, self.root[k])?;
-        }
-        Ok(())
-    }
-}
 
 impl PartialEq for LatticeEntry {
     fn eq(&self, other: &Self) -> bool {
@@ -509,7 +494,7 @@ impl Incognito {
         lf: LazyFrame,
         attr: &QuasiIdentifier,
         dimension_tables: &DimensionTables,
-    ) -> PolarsResult<LazyFrame> {
+    ) -> LazyFrame {
         let col_name = attr.incognito_colname.clone();
         let dim_table = &dimension_tables[attr];
 
@@ -518,21 +503,16 @@ impl Incognito {
             col("to").alias("__next"),
         ]);
 
-        let post_join = lf
-            .join(
+        lf.join(
                 edges,
                 [col(col_name.clone())],
                 [col(col_name.clone())],
                 JoinArgs::new(JoinType::Left),
-            )
-            .collect()?;
-
-        Ok(post_join
-            .lazy()
-            .with_column(coalesce(&[col("__next"), col(col_name.clone())]).alias(col_name))
-            .select([all().exclude_cols(["__next"]).as_expr()]))
+            ).with_column(coalesce(&[col("__next"), col(col_name.clone())]).alias(col_name))
+            .select([all().exclude_cols(["__next"]).as_expr()])
     }
 
+    // faster version of rollup for when parent is known
     fn rollup_from_parent(
         qis: &QuasiIdentifiers,
         changed_attr: &QuasiIdentifier,
@@ -543,7 +523,7 @@ impl Incognito {
             parent_freq.df.clone().lazy(),
             changed_attr,
             dimension_tables,
-        )?;
+        );
 
         let att_cols: Vec<Expr> = qis
             .0
@@ -565,11 +545,12 @@ impl Incognito {
         root_freq: &FrequencyTable,
         dimension_tables: &DimensionTables,
     ) -> PolarsResult<FrequencyTable> {
+        // this function is a bottleneck because of the df.collect() below.
         let mut lf = root_freq.df.clone().lazy();
         for attr in &qis.0 {
             let levels = node.root[attr];
             for _ in 0..levels {
-                lf = Self::generalize_column(lf, attr, dimension_tables)?;
+                lf = Self::generalize_column(lf, attr, dimension_tables);
             }
         }
 
@@ -598,7 +579,7 @@ impl Incognito {
         for attr in &qis.0 {
             let levels = node.root[attr];
             for _ in 0..levels {
-                lf = Self::generalize_column(lf, attr, dimension_tables)?;
+                lf = Self::generalize_column(lf, attr, dimension_tables);
             }
         }
 
@@ -622,9 +603,12 @@ impl Incognito {
         ranges
             .into_iter()
             .multi_cartesian_product()
+            .par_bridge()
+            .into_par_iter()
             .map(|combo| {
                 let root: BTreeMap<_, _> = attrs.iter().cloned().zip(combo).collect();
                 let mut e = LatticeEntry::from_root(root, &QuasiIdentifiers(attrs.clone()));
+                e.parent = Some(Arc::new(entry.clone()));
                 e.set_freq_table(entry.freq_table.clone());
                 e
             })
