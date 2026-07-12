@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+itertools = "0.15.0"
 polars = { version = "0.53.0", features = [
   "lazy",
   "csv",

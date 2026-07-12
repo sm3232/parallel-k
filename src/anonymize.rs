@@ -39,7 +39,8 @@ pub struct Anonymizer {
 }
 
 impl Anonymizer {
-    pub fn new(dataset: Dataset, quasi_identifiers: QuasiIdentifiers) -> Self {
+    pub fn new(dataset: Dataset, mut quasi_identifiers: QuasiIdentifiers) -> Self {
+        quasi_identifiers.0.sort_by_key(|x| x.index);
         Self {
             dataset,
             quasi_identifiers,

@@ -19,9 +19,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let df = util::clean_adult_csv("adult.csv".into())?;
 
+    unsafe { std::env::set_var("POLARS_FMT_MAX_COLS", df.width().to_string()); }
+    unsafe { std::env::set_var("POLARS_MAX_THREADS", "1"); }
+
     let k = 100;
     let qis = QuasiIdentifiers::from_column_names(&[
-        ("age", QIType::Numerical{ leaf_bucket_size: 5 }),
+        ("age", QIType::Numerical{ leaf_bucket_size: 1 }),
         ("workclass", QIType::Categorical{ path_to_json_hierarchy: "taxonomies/workclass.json".into() }),
         ("education", QIType::Categorical{ path_to_json_hierarchy: "taxonomies/education.json".into() }),
         ("marital-status", QIType::Categorical{ path_to_json_hierarchy: "taxonomies/marital-status.json".into() }),
