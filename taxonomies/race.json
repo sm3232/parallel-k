@@ -1,0 +1,25 @@
+{
+  "col_name": "*",
+  "children": [
+    {
+      "col_name": "White"
+    },
+    {
+      "col_name": "Non-White",
+      "children": [
+        {
+          "col_name": "Black"
+        },
+        {
+          "col_name": "Asian-Pac-Islander"
+        },
+        {
+          "col_name": "Amer-Indian-Eskimo"
+        }
+      ]
+    },
+    {
+      "col_name": "Other"
+    }
+  ]
+}

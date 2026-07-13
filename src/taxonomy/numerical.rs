@@ -12,6 +12,11 @@ pub struct NumericalNode {
     pub children: Vec<String>,
     pub parent: Option<String>,
 }
+impl NumericalNode {
+    pub fn contains(&self, other: (i64, i64)) -> bool {
+        other.0 >= self.range.0 && other.1 <= self.range.1
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct NumericalTaxonomy {
@@ -20,10 +25,21 @@ pub struct NumericalTaxonomy {
     // dynamically creating the intervals
     pub min_val: i64,
     pub max_val: i64,
-    pub col_name: String
+    pub col_name: String,
+    pub root_id: String
 }
 
 impl NumericalTaxonomy {
+
+    pub fn generalize(&self, value: (i64, i64), level: usize) -> (i64, i64) {
+        if let Some(result) = self.nodes.iter().filter(|x| 
+            x.1.level == level + 1 && x.1.contains(value)
+        ).take(1).next() {
+            return result.1.range;
+        }
+        value
+    }
+
     pub fn create_from_data_range(
         col_name: &str,
         min_val: i64,
@@ -57,16 +73,18 @@ impl NumericalTaxonomy {
             )
         }
 
-        if let Some(root_id) = current_level_nodes.first() {
-            if let Some(root) = nodes.get_mut(root_id) {
-                root.level = current_level + 1;
-            }
+
+        assert!(current_level_nodes.len() == 1);
+        let root_id = current_level_nodes.first().unwrap();
+        if let Some(root) = nodes.get_mut(root_id) {
+            root.level = current_level;
         }
         Self {
             nodes,
             min_val,
             max_val,
             col_name: col_name.to_string(),
+            root_id: root_id.to_owned()
         }
     }
 
@@ -136,8 +154,25 @@ impl NumericalTaxonomy {
         parent_ids
     }
 
+    pub fn print_numerical_taxanomy_recurse(&self, id: &String, node: &NumericalNode, depth: usize) {
+        let indent = "  ".repeat(depth);
+
+        println!("{}[Level {}] ({}, {}) (ID: {})", indent, node.level, node.range.0, node.range.1, id);
+
+        for child_id in &node.children {
+            if let Some(child_node) = self.nodes.get(child_id) {
+                self.print_numerical_taxanomy_recurse(child_id, child_node, depth + 1);
+            }
+        }
+    }
     pub fn print_numerical_taxanomy_tree(&self){
-        println!("{:?}", self);
+        if let Some(root_node) = self.nodes.get(&self.root_id) {
+            self.print_numerical_taxanomy_recurse(&self.root_id, root_node, 0);
+        } else {
+            for (id, node) in self.nodes.iter().filter(|(_, n)| n.level == 0) {
+                self.print_numerical_taxanomy_recurse(id, node, 0);
+            }
+        }
     }
 }
 

@@ -1,0 +1,33 @@
+{
+  "col_name": "*",
+  "children": [
+    {
+      "col_name": "Spouse",
+      "children": [
+        {
+          "col_name": "Husband"
+        },
+        {
+          "col_name": "Wife"
+        }
+      ]
+    },
+    {
+      "col_name": "Own-child"
+    },
+    {
+      "col_name": "Unrelated",
+      "children": [
+        {
+          "col_name": "Not-in-family"
+        },
+        {
+          "col_name": "Other-relative"
+        },
+        {
+          "col_name": "Unmarried"
+        }
+      ]
+    }
+  ]
+}

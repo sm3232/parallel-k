@@ -2,46 +2,48 @@
   "col_name": "*",
   "children": [
     {
-      "col_name": "Government",
+      "col_name": "Employed",
       "children": [
         {
-          "col_name": "Federal-gov",
-          "children": []
+          "col_name": "Private"
         },
         {
-          "col_name": "State-gov",
-          "children": []
+          "col_name": "Self-Employed",
+          "children": [
+            {
+              "col_name": "Self-emp-not-inc"
+            },
+            {
+              "col_name": "Self-emp-inc"
+            }
+          ]
         },
         {
-          "col_name": "Local-gov",
-          "children": []
+          "col_name": "Government",
+          "children": [
+            {
+              "col_name": "Federal-gov"
+            },
+            {
+              "col_name": "Local-gov"
+            },
+            {
+              "col_name": "State-gov"
+            }
+          ]
         }
       ]
     },
     {
-      "col_name": "Private",
-      "children": []
-    },
-    {
-      "col_name": "Self-employed",
+      "col_name": "Non-Earning",
       "children": [
         {
-          "col_name": "Self-emp-not-inc",
-          "children": []
+          "col_name": "Without-pay"
         },
         {
-          "col_name": "Self-emp-inc",
-          "children": []
+          "col_name": "Never-worked"
         }
       ]
-    },
-    {
-      "col_name": "Without-pay",
-      "children": []
-    },
-    {
-      "col_name": "Never-worked",
-      "children": []
     }
   ]
 }
