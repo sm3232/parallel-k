@@ -28,18 +28,12 @@ jobs:
           cache-dependency-path: './webpage/frontend/package-lock.json'
 
       - name: install dependencies
-        run: |
-          cd frontend
-          npm ci
-        with:
-          path: "./webpage/frontend/dist"
+        run: npm ci
+        working-directory: ./webpage/frontend
 
       - name: Build
-        run: |
-          cd frontend
-          npm run build
-        with:
-          path: "./webpage/frontend/dist"
+        run: npm run build
+        working-directory: ./webpage/frontend
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
