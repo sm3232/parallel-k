@@ -1,385 +1,136 @@
 /*
-* Citation: based on
+* Citations
+*
 * UTD Anonymization ToolBox
 * The University of Texas at Dallas
+*
+* Kristen LeFevre, David J. DeWitt, and Raghu Ramakrishnan.
+* 2005. Incognito: efficient full-domain K-anonymity. In
+* Proceedings of the 2005 ACM SIGMOD international conference
+* on Management of data (SIGMOD '05). Association for
+* Computing Machinery, New York, NY, USA, 49–60.
+* https://doi.org/10.1145/1066157.1066164
 */
 
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, BinaryHeap, HashMap, HashSet},
+};
 
-use std::collections::{HashMap, HashSet};
-
+use itertools::Itertools;
 use polars::{frame::row::Row, prelude::*};
+use rayon::prelude::*;
 
 use crate::{
     algorithms::anonymization_algorithm::{AlgorithmError, AnonymizationAlgorithm},
-    data::{QIType, QuasiIdentifier, dataset::Dataset, qi::QuasiIdentifiers}, taxonomy::TaxonomyManager,
+    data::{QIType, QuasiIdentifier, dataset::Dataset, qi::QuasiIdentifiers},
+    taxonomy::TaxonomyManager,
 };
-
-#[derive(Clone)]
-pub enum EquivValue {
-    Numeric((i64, i64)),
-    Categorical(String)
+struct DimensionTables {
+    map: BTreeMap<QuasiIdentifier, usize>,
+    tables: Vec<DataFrame>,
 }
-impl std::fmt::Display for EquivValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EquivValue::Numeric((lo, hi)) => writeln!(f, "Numeric(({}, {}))", lo, hi),
-            EquivValue::Categorical(category) => writeln!(f, "Categorical({})", category),
-        }
+impl DimensionTables {
+    pub fn new(map: BTreeMap<QuasiIdentifier, usize>, tables: Vec<DataFrame>) -> Self {
+        Self { map, tables }
     }
 }
-impl std::fmt::Debug for EquivValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { writeln!(f, "{self}") }
-}
-enum EquivColumn {
-    Numeric(StructChunked),
-    Categorical(StringChunked)
-}
-impl EquivValue {
-    pub fn as_expr(&self) -> Expr {
-        match self {
-            EquivValue::Numeric(range) => {
-                as_struct(
-                    vec![
-                        lit(range.0).alias("low"),
-                        lit(range.1).alias("high")
-                    ]
-                )
-            },
-            EquivValue::Categorical(category) => lit(category.to_owned()),
-        }
+impl std::ops::Index<&QuasiIdentifier> for DimensionTables {
+    type Output = DataFrame;
+    fn index(&self, index: &QuasiIdentifier) -> &Self::Output {
+        &self.tables[self.map[index]]
     }
-    pub fn new (any_val: &AnyValue) -> Option<Self> {
-        match any_val {
-            AnyValue::String(s) => {
-                Some(EquivValue::Categorical(s.to_string()))
-            }
-            AnyValue::StringOwned(s) => {
-                Some(EquivValue::Categorical(s.to_string()))
-            }
-            AnyValue::StructOwned(payload) => {
-                let values = &payload.0;
-
-                if let (Some(AnyValue::Int64(low)), Some(AnyValue::Int64(high))) = (values.get(0), values.get(1)) {
-                    Some(EquivValue::Numeric((*low, *high)))
-                } else {
-                    None
-                }
-            }
-
-            AnyValue::Struct(_row_idx, _arrow_array, _fields) => {
-                let owned_val = any_val.clone().to_owned(); 
-
-                if let AnyValue::StructOwned(payload) = owned_val {
-                    let values = &payload.0;
-                    if let (Some(AnyValue::Int64(low)), Some(AnyValue::Int64(high))) = (values.get(0), values.get(1)) {
-                        return Some(EquivValue::Numeric((*low, *high)));
-                    }
-                }
-                None
-            }
-            _ => None,
-        }
+}
+impl std::ops::Index<QuasiIdentifier> for DimensionTables {
+    type Output = DataFrame;
+    fn index(&self, index: QuasiIdentifier) -> &Self::Output {
+        &self.tables[self.map[&index]]
     }
 }
 
-#[derive(Clone,Default)]
-pub struct EquivTable {
-    qis: QuasiIdentifiers,
-    df: DataFrame,
+#[derive(Clone, Default)]
+pub struct FrequencyTable {
+    pub qis: QuasiIdentifiers,
+    pub df: DataFrame,
 }
-trait AuxTable {
-    fn name(&self) -> &str;
-    fn dataframe(&self) -> &DataFrame;
-    fn drop_table(&mut self);
-}
-impl EquivTable {
-    pub fn remove_eid(&mut self, eid: i64) -> PolarsResult<()> {
-        self.df = self
-            .df
-            .clone()
-            .lazy()
-            .filter(col("EID").neq(lit(eid)))
-            .collect()?;
-        Ok(())
-    }
-    pub fn set_generalization(&mut self, eid: i64, new_vals: &[EquivValue]) -> PolarsResult<()> {
-        let mut lf = self.df.clone().lazy();
-        for (i, attr) in self.qis.0.iter().enumerate() {
-            let col_name = attr.incognito_colname.clone();
-            let new_val = new_vals[i].clone();
-            lf = lf.with_column(
-                when(col("EID").eq(lit(eid)))
-                    .then(new_vals[i].as_expr())
-                    .otherwise(col(&col_name))
-                    .alias(&col_name),
-            );
-        }
-        self.df = lf.collect()?;
-        Ok(())
-    }
-    pub fn get_generalization(&self, eid: i64) -> PolarsResult<Option<Vec<EquivValue>>> {
-        let result = self
-            .df
-            .clone()
-            .lazy()
-            .filter(col("EID").eq(lit(eid)))
-            .collect()?;
-
-        if result.height() == 0 {
-            return Ok(None);
-        }
-
-        let mut gen_vals = Vec::with_capacity(self.qis.0.len());
-        for attr in &self.qis.0 {
-            let col_name = attr.incognito_colname.clone();
-            match attr.qi_type {
-                QIType::Numerical { .. } => {
-                    let struct_ = result.column(&col_name)?.struct_()?;
-                    let low = struct_.field_by_name("low")?.i64()?.get(0).unwrap().to_owned();
-                    let high = struct_.field_by_name("high")?.i64()?.get(0).unwrap().to_owned();
-                    gen_vals.push(EquivValue::Numeric((low, high)));
-                },
-                QIType::Categorical { .. } => {
-                    let val = result.column(&col_name)?.str()?.get(0).unwrap().to_owned();
-                    gen_vals.push(EquivValue::Categorical(val));
-                },
-            }
-        }
-        Ok(Some(gen_vals))
-    }
-    pub fn get_eid(&self, gen_vals: &[EquivValue]) -> PolarsResult<Option<i64>> {
-        if gen_vals.len() != self.qis.0.len() {
-            return Err(PolarsError::ShapeMismatch(
-                format!(
-                    "get_eid: expected {} generalised values, got {}",
-                    self.qis.0.len(),
-                    gen_vals.len()
-                )
-                .into(),
-            ));
-        }
-
-        let mut filter_expr = lit(true);
-        for (i, attr) in self.qis.0.iter().enumerate() {
-            let col_name = attr.incognito_colname.clone();
-            filter_expr = filter_expr
-                .and(col(&col_name).eq(gen_vals[i].as_expr()));
-        }
-
-        let result = self.df.clone().lazy().filter(filter_expr).collect()?;
-
-        if result.height() == 0 {
-            Ok(None)
+impl FrequencyTable {
+    pub fn is_k_anonymous(&self, k: u32) -> PolarsResult<bool> {
+        let min_count = if self.df.height() <= 1 {
+            self.df
+                .column("count")?
+                .as_materialized_series()
+                .min::<u32>()?
+                .unwrap_or(0)
         } else {
-            Ok(result.column("EID")?.i64()?.get(0))
-        }
-    }
-
-
-    pub fn dataframe(&self) -> &DataFrame {
-        &self.df
-    }
-}
-#[derive(Clone,Default)]
-pub struct AnonTable {
-    qis: QuasiIdentifiers,
-    df: DataFrame,
-}
-impl AnonTable {
-    pub fn is_k_anonymous(&self, qis: QuasiIdentifiers, k: u32) ->Result<bool, PolarsError> {
-        let is_k_anon_col = self.df.clone().lazy()
-            .with_column(
-                len().over(qis.0.iter().map(|x| 
-                    col(x.incognito_colname.clone()),
-                ).collect::<Vec<_>>())
-                .alias("__is_k_anon")
-            ).collect()?;
-        let series = is_k_anon_col.column("__is_k_anon")?.as_series().unwrap();
-        let min_k = series.min::<u32>()?.unwrap();
-        Ok(min_k >= k)
-    }
-
-    pub fn dataframe(&self) -> &DataFrame {
-        &self.df
-    }
-
-
-    pub fn from_remap(
-        qis: QuasiIdentifiers,
-        source: &AnonTable,
-        eid_map: &DataFrame,
-    ) -> PolarsResult<Self> {
-        let rename_exprs = qis.0.iter().map(|x| col(format!("ATT_{}_right", x.index)).alias(x.incognito_colname.clone())).collect::<Vec<_>>();
-        let drop_exprs = [PlSmallStr::from("NEW_EID")].into_iter().chain(qis.0.iter().map(|x| PlSmallStr::from(format!("ATT_{}_right", x.index)))).collect::<Vec<_>>();
-
-
-        let df = source.df.clone().lazy()
-            .join(eid_map.clone().lazy(),
-                [col("EID")],
-                [col("PREV_EID")],
-                JoinArgs::new(JoinType::Inner)
-            ).with_column(col("NEW_EID").alias("EID"))
-            .with_columns(
-                rename_exprs
-            ).drop(Selector::ByName { names: drop_exprs.into(), strict: true })
-            .collect()?;
-        ;
- 
-        Ok(AnonTable { qis, df })
+            self.df
+                .column("count")?
+                .as_series()
+                .unwrap()
+                .min::<u32>()?
+                .unwrap_or(0)
+        };
+        Ok(min_count >= k)
     }
 }
-
-
 
 #[derive(Clone)]
 pub struct LatticeEntry {
     pub attr: QuasiIdentifier,
-    pub root: HashMap<QuasiIdentifier, usize>,
-    pub anon_table: AnonTable,
-    pub equi_table: EquivTable,
+    pub root: BTreeMap<QuasiIdentifier, usize>,
+    pub freq_table: Arc<FrequencyTable>,
+    pub parent: Option<Arc<LatticeEntry>>,
 }
-impl std::fmt::Display for LatticeEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut qis: Vec<_> = self.root.keys().collect();
-        qis.sort_by_key(|x| x.column_name.to_owned());
 
-        let mut ret = self.root.get(qis[0]).unwrap().to_string();
-        for i in &qis[1..] {
-            ret += &("_".to_owned() + (&self.root.get(i).unwrap().to_string()));
-        }
-        write!(f, "{ret}")
+impl PartialEq for LatticeEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
     }
 }
-impl std::fmt::Debug for LatticeEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LatticeEntry").field("attr", &self.attr).field("root", &self.root).finish()
+
+impl PartialOrd for LatticeEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for LatticeEntry {}
+
+impl Ord for LatticeEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.root.cmp(&other.root)
+    }
+}
+
+impl std::hash::Hash for LatticeEntry {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.root.hash(state);
     }
 }
 
 impl LatticeEntry {
-    pub fn from_root(root: HashMap<QuasiIdentifier, usize>, qis: &QuasiIdentifiers) -> Self {
+    pub fn from_root(root: BTreeMap<QuasiIdentifier, usize>, qis: &QuasiIdentifiers) -> Self {
         Self {
             root: root.clone(),
             attr: qis.0[0].clone(),
-            anon_table: AnonTable::default(),
-            equi_table: EquivTable::default()
+            freq_table: Arc::new(FrequencyTable::default()),
+            parent: None,
         }
     }
     pub fn from_parent(parent: &Self, attr: QuasiIdentifier) -> Self {
         let mut me = Self {
             attr,
             root: parent.root.clone(),
-            anon_table: AnonTable::default(),
-            equi_table: EquivTable::default()
+            freq_table: Arc::new(FrequencyTable::default()),
+            parent: Some(Arc::new(parent.clone())),
         };
         *me.root.get_mut(&me.attr).unwrap() += 1;
         me
     }
 
-    pub fn height_at(&self, attr: QuasiIdentifier) -> usize { *self.root.get(&attr).unwrap() }
-
-    pub fn generalizes_to(&self, other: &Self) -> bool {
-        assert!(self.root.len() == other.root.len());
-        for k in self.root.keys() {
-            if self.root.get(k).unwrap() > other.root.get(k).unwrap() {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub fn parents_name(&self) -> String{
-        let mut parent_root = self.root.clone();
-        *parent_root.get_mut(&self.attr).unwrap() -= 1;
-
-        let mut qis: Vec<_> = parent_root.keys().collect();
-        qis.sort_by_key(|x| x.column_name.to_owned());
-
-        let mut ret = parent_root.get(qis[0]).unwrap().to_string();
-        for i in &qis[1..] {
-            ret += &("_".to_owned() + (&parent_root.get(i).unwrap().to_string()));
-        }
-        ret
-    }
-    pub fn set_tables(&mut self, anon: AnonTable, equi: EquivTable) {
-        self.anon_table = anon;
-        self.equi_table = equi;
+    pub fn set_freq_table(&mut self, freq_table: Arc<FrequencyTable>) {
+        self.freq_table = freq_table;
     }
 }
-
-pub struct LatticeManager {
-    dgh_depths: HashMap<QuasiIdentifier, usize>,
-    qis: QuasiIdentifiers,
-    roots: Vec<Option<LatticeEntry>>,
-    next_index: usize,
-    last_returned: Option<LatticeEntry>,
-    successful_entries: Vec<LatticeEntry>
-}
-
-impl LatticeManager {
-    pub fn new(super_root: LatticeEntry, dgh_depths: HashMap<QuasiIdentifier, usize>, qis: QuasiIdentifiers) -> Self {
-        Self {
-            dgh_depths,
-            qis,
-            roots: vec![Some(super_root.clone())],
-            next_index: 0,
-            last_returned: None,
-            successful_entries: Vec::default()
-        }
-    }
-
-    pub fn has_next(&mut self) -> bool {
-        if self.next_index < self.roots.len() {
-            true
-        } else {
-            self.next_index = 0;
-            let mut new_roots = Vec::default();
-            for i in 0..self.roots.len() {
-                if self.roots[i].is_none() {
-                    continue;
-                }
-                let curr = self.roots[i].as_ref().unwrap();
-                for k in curr.attr.index..self.dgh_depths.len() {
-                    let qi = self.qis.0.iter().find(|x| x.index == k).unwrap().clone();
-                    let new = LatticeEntry::from_parent(curr, qi.clone());
-                    if new.height_at(qi.clone()) <= *self.dgh_depths.get(&qi.clone()).unwrap() {
-                        new_roots.push(Some(new));
-                    }
-                }
-            }
-            if new_roots.is_empty() {
-                false
-            } else {
-                // Eventually this new_Roots.len() number goes down, and we reach 0. At that point
-                // all combinations of generalizations have been considered.
-                println!("Completed {} iterations, expanding with {} more", self.roots.len(), new_roots.len());
-                self.roots = new_roots;
-                true
-            }
-        }
-    }
-
-    pub fn get_successful(&self) -> Vec<LatticeEntry> {
-        self.successful_entries.clone()
-    }
-
-    pub fn next_entry(&mut self) -> LatticeEntry {
-        self.last_returned = self.roots[self.next_index].clone();
-        self.last_returned.clone().unwrap()
-    }
-
-    pub fn set_result_ok(&mut self, anon: AnonTable, equi: EquivTable) {
-        self.last_returned.as_mut().unwrap().set_tables(anon, equi);
-        self.successful_entries.push(self.last_returned.as_mut().unwrap().clone());
-        self.roots[self.next_index] = None;
-        self.next_index += 1;
-    }
-    pub fn set_result_bad(&mut self) {
-        self.next_index += 1;
-    }
-}
-
-
 
 #[derive(Default)]
 pub struct Incognito {}
@@ -395,297 +146,592 @@ impl AnonymizationAlgorithm for Incognito {
         dataset: Dataset,
         quasi_identifiers: QuasiIdentifiers,
     ) -> Result<Dataset, AlgorithmError> {
-        let df_col_names: Vec<_> = dataset.df.get_column_names_owned().iter().map(|x| x.to_string()).collect();
+        if k < 2 {
+            return Err(format!("k must be at least 2, got k = {k}").into());
+        }
+
+        let df_col_names: Vec<_> = dataset
+            .df
+            .get_column_names_owned()
+            .iter()
+            .map(|x| x.to_string())
+            .collect();
         let mut resolve_id = "resolve_id".to_owned();
         while df_col_names.contains(&resolve_id) {
             resolve_id += "_";
         }
 
+        // resolve_id column to rejoin table after anonymization
         let df = dataset.df.with_row_index(resolve_id.clone().into(), None)?;
 
-        let aux = df.lazy().with_columns(
-            dataset.taxonomies.numerical_taxonomies.iter().map(|(name, tax)| as_struct(vec![
-                col(name.to_owned()).alias("low"),
-                col(name.to_owned()).alias("high"),
-            ]).alias(name.to_owned())).collect::<Vec<_>>()
-        ).collect()?;
+        // converted numeric ranges to struct columns with { low: number, high: number }
+        let aux = df
+            .lazy()
+            .with_columns(
+                dataset
+                    .taxonomies
+                    .numerical_taxonomies
+                    .iter()
+                    .map(|(name, tax)| {
+                        as_struct(vec![
+                            col(name.to_owned()).alias("low"),
+                            col(name.to_owned()).alias("high"),
+                        ])
+                        .alias(name.to_owned())
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .collect()?;
 
         let mut dgh_depths: HashMap<QuasiIdentifier, usize> = HashMap::default();
-        let mut root: HashMap<QuasiIdentifier, usize> = HashMap::default();
         for qi in quasi_identifiers.0.iter() {
-            dgh_depths.insert(qi.clone(), dataset.taxonomies.get_qi_height(qi.column_name.to_owned()));
-            root.insert(qi.clone(), 0);
+            dgh_depths.insert(
+                qi.clone(),
+                dataset.taxonomies.get_qi_height(qi.column_name.to_owned()),
+            );
         }
-        let super_root: LatticeEntry = LatticeEntry::from_root(root, &quasi_identifiers);
 
-
-        let att_col_names: Vec<String> = quasi_identifiers.0.iter()
-            .map(|attr| attr.incognito_colname.clone())
-            .collect();
-        let att_cols: Vec<Expr> = att_col_names.iter().map(col).collect();
- 
-        let select_exprs: Vec<Expr> = quasi_identifiers.0.iter()
+        let select_exprs: Vec<Expr> = quasi_identifiers
+            .0
+            .iter()
+            // expressions that select each qi column (age, sex, etc) and renames them to ATT_0, ATT_1, ..., ATT_N
             .map(|attr| col(attr.column_name.to_owned()).alias(attr.incognito_colname.clone()))
             .collect();
- 
-        let qi_df = aux.clone()
-            .lazy()
-            .select(
-                std::iter::once(col(resolve_id.clone()))
-                    .chain(select_exprs)
-                    .collect::<Vec<_>>()
-            )
-            .collect()?;
-        let resolve_df = aux
-            .lazy()
-            .select([
-                all().exclude_cols(
-                    quasi_identifiers.0.iter().map(|attr| attr.column_name.to_owned())
-                ).into()
-            ]).collect()?;
- 
-        let curr_equi_df = qi_df
+
+        // [resolve_id, ATT_0, ATT_1, ..., ATT_N]
+        let qi_df = aux
             .clone()
             .lazy()
-            .select(att_cols.clone())
-            .unique_stable(Some(Selector::ByName { names: att_col_names.clone().iter().map(|x| PlSmallStr::from_string(x.to_owned())).collect::<Vec<_>>().into() , strict: true }), UniqueKeepStrategy::First)
-            .collect()?
-            .with_row_index("EID".into(), Some(1))?
-            .lazy()
             .select(
-                std::iter::once(col("EID").cast(DataType::Int64))
-                    .chain(att_cols.clone())
-                    .collect::<Vec<_>>()
+                // run select_exprs on the aux table, and include the resolve_id column
+                std::iter::once(col(resolve_id.clone()))
+                    .chain(select_exprs.clone())
+                    .collect::<Vec<_>>(),
             )
             .collect()?;
- 
-        let anon_df = qi_df
+
+        let base_count_table = qi_df
+            .clone()
             .lazy()
-            .join(
-                curr_equi_df.clone().lazy(),
-                att_cols.clone(),
-                att_cols.clone(),
-                JoinArgs::new(JoinType::Inner),
-            )
-            .select(
-                [col(resolve_id.clone()), col("EID")]
-                    .into_iter()
-                    .chain(att_cols.clone())
-                    .collect::<Vec<_>>()
-            )
+            .group_by([all().exclude_cols([resolve_id.clone()])])
+            .agg([len().alias("count")])
             .collect()?;
- 
 
-        let equi = EquivTable {
-            qis: quasi_identifiers.clone(),
-            df: curr_equi_df,
-        };
+        let dimension_tables = Self::generate_dimension_tables(&dataset)?;
 
-        let anon = AnonTable {
-            qis: quasi_identifiers.clone(),
-            df: anon_df
-        };
+        // S_{i-1}
+        let mut s_prev: Vec<LatticeEntry> = Vec::new();
+        for qi in &quasi_identifiers.0 {
+            // a single { ATT_N } node
+            let root = LatticeEntry::from_root(
+                BTreeMap::from([(qi.clone(), 0)]),
+                &QuasiIdentifiers(vec![qi.clone()]),
+            );
+            let freq = Self::make_frequency_set(
+                &base_count_table,
+                QuasiIdentifiers(std::slice::from_ref(qi).to_vec()),
+            )?;
+            let entries = Self::search_subset(
+                root.clone(),
+                freq.clone(),
+                &dgh_depths,
+                &dimension_tables,
+                k,
+            )?;
+            for entry in &entries {
+                s_prev.extend(Self::expand_search(entry, &dgh_depths));
+            }
+        }
 
+        // start at 2, because loop above already considered sets with 1 attribute.
+        // they are in s_prev already
+        for i in 2..=quasi_identifiers.0.len() {
+            // c_i := candidate multi attribute generalization sets of size i
+            // candidates are built by combining two (i-1) attribute entries from S_{i-1} that agree on their first i-2 attributes
+            let mut c_i: Vec<LatticeEntry> = Vec::default();
 
-        let mut result = Self::anonymize_impl(
-            anon,
-            equi,
-            LatticeManager::new(super_root.clone(), dgh_depths, quasi_identifiers.clone()),
-            dataset.taxonomies.clone(),
-            quasi_identifiers.clone(),
-            k
+            // p := lattice entry with i-1 attributes from S_{i-1}
+            s_prev.sort_by_key(|x| x.root.values().sum::<usize>());
+            for p in &s_prev {
+                // q := lattice entry with i-1 attributes from S_{i-1}
+                'skip_q: for q in &s_prev {
+                    for (pkey, qkey) in p
+                        .root
+                        .keys()
+                        .zip(q.root.keys())
+                        .take(p.root.keys().len() - 1)
+                    {
+                        if pkey != qkey || p.root[pkey] != q.root[qkey] {
+                            continue 'skip_q;
+                        }
+                    }
+
+                    let q_last_attr = q.root.last_key_value().unwrap().0;
+                    if p.root.last_key_value().unwrap().0.index < q_last_attr.index {
+                        let qlast_height = q.root[q_last_attr];
+                        let mut new_root = p.root.clone();
+                        new_root.insert(q_last_attr.clone(), qlast_height);
+                        let subset = &QuasiIdentifiers(new_root.keys().cloned().collect());
+                        c_i.push(LatticeEntry::from_root(new_root, subset));
+                    }
+                }
+            }
+
+            #[allow(clippy::mutable_key_type)] // interior mutability is not accessed.
+            let s_prev_keys: HashSet<LatticeEntry> = s_prev.iter().cloned().collect();
+            #[allow(clippy::mutable_key_type)] // interior mutability is not accessed.
+            let mut seen = HashSet::new();
+            c_i.retain(|cand| {
+                seen.insert(cand.clone())
+                    && cand.root.keys().all(|drop_attr| {
+                        let mut new_root = cand.root.clone();
+                        new_root.retain(|k, v| k.ne(drop_attr));
+                        s_prev_keys.contains(&LatticeEntry {
+                            attr: cand.attr.clone(),
+                            root: new_root,
+                            parent: None,
+                            freq_table: Arc::default(),
+                        })
+                    })
+            });
+
+            let mut s_i = Vec::new();
+            for cand in c_i {
+                let freq = Self::make_frequency_set(
+                    &base_count_table,
+                    QuasiIdentifiers(cand.root.keys().cloned().collect()),
+                )?;
+                let entries =
+                    Self::search_subset(cand.clone(), freq, &dgh_depths, &dimension_tables, k)?;
+                for entry in &entries {
+                    s_i.extend(Self::expand_search(entry, &dgh_depths));
+                }
+            }
+
+            if s_i.is_empty() {
+                break;
+            }
+            s_prev = s_i;
+        }
+
+        let best_entry = s_prev
+            .into_iter()
+            .min_by_key(|entry| entry.root.values().sum::<usize>())
+            .ok_or_else(|| {
+                format!("No k-anonymous full domain generalization exists for k = {k}").to_string()
+            })?;
+
+        let mut best_subset: Vec<_> = best_entry.root.keys().cloned().collect();
+        let best_qis = QuasiIdentifiers(best_subset);
+
+        let generalized = Self::materialize(
+            &qi_df,
+            &resolve_id,
+            &best_qis,
+            &best_entry,
+            &dimension_tables,
         )?;
 
+        // create a table that has all columns not in the generalized qi set already.
+        let resolve_df = aux
+            .clone()
+            .lazy()
+            .select([all()
+                .exclude_cols(best_qis.0.iter().map(|attr| attr.column_name.to_owned()))
+                .into()])
+            .collect()?;
 
-        result = result.lazy().with_columns(
-            quasi_identifiers.0.iter().map(|x| match x.qi_type {
-                QIType::Numerical { .. } => {
-                    concat_str([
-                        col(x.incognito_colname.clone()).struct_().field_by_name("low"),
-                        col(x.incognito_colname.clone()).struct_().field_by_name("high"),
-                    ], "-", true).alias(x.incognito_colname.clone())
-                },
-                QIType::Categorical { .. } => {
-                    col(x.incognito_colname.clone())
-                },
-            }).collect::<Vec<_>>()
-        ).collect()?;
+        // add data that wasn't anonymized back to the table
+        let mut result = generalized
+            .lazy()
+            .join(
+                resolve_df.lazy(),
+                [col(resolve_id.clone())],
+                [col(resolve_id.clone())],
+                JoinArgs::new(JoinType::Inner),
+            )
+            .collect()?;
 
-        let renames = quasi_identifiers.0.into_iter().map(|x| {
-            (x.incognito_colname.clone(), PlSmallStr::from(x.column_name.to_owned()))
-        }).collect::<Vec<_>>();
-        let renames_refs: Vec<_> = renames.iter().map(|(str, plsm)| (str.as_str(), plsm.clone())).collect();
-        result.rename_many(renames_refs.into_iter())?;
+        // rename ATT_N back to the column name.
+        let renames = best_qis
+            .0
+            .iter()
+            .map(|x| {
+                (
+                    x.incognito_colname.clone(),
+                    PlSmallStr::from(x.column_name.to_owned()),
+                )
+            })
+            .collect::<Vec<_>>();
+        let renames_refs: Vec<_> = renames
+            .iter()
+            .map(|(str, plsm)| (str.as_str(), plsm.clone()))
+            .collect();
+        result.rename_many(renames_refs.into_iter())?.rechunk_mut();
 
-        result = result.left_join(&resolve_df, [resolve_id.clone()], [resolve_id.clone()])?.drop_many(["EID", &resolve_id.clone()]);
+        // remap { low: number, high: number } columns to a string range.
+        result = result
+            .lazy()
+            .with_columns(
+                quasi_identifiers
+                    .0
+                    .clone()
+                    .into_iter()
+                    .map(|x| match x.qi_type {
+                        QIType::Numerical { .. } => concat_str(
+                            [
+                                col(x.column_name.clone()).struct_().field_by_name("low"),
+                                col(x.column_name.clone()).struct_().field_by_name("high"),
+                            ],
+                            "-",
+                            true,
+                        )
+                        .alias(x.column_name.clone()),
+                        QIType::Categorical { .. } => col(x.column_name.clone()),
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .collect()?;
 
-        Ok(Dataset::from_anonymized(result, dataset.qis, dataset.taxonomies))
+        result = result.drop_many([&resolve_id]);
+        result.rechunk_mut();
+
+        Ok(Dataset::from_anonymized(
+            result,
+            dataset.qis.clone(),
+            dataset.taxonomies.clone(),
+        ))
     }
 }
 
 impl Incognito {
-    fn apply_generalization(
-        last_equi: &EquivTable,
-        qis: &QuasiIdentifiers,
-        root: &LatticeEntry,
-        taxonomy_man: &TaxonomyManager,
-    ) -> PolarsResult<DataFrame> {
-        let df = last_equi.dataframe();
-        let n_rows = df.height();
+    // Performs bfs over a qi subset's generalization lattice
+    fn search_subset(
+        root: LatticeEntry,
+        root_freq: FrequencyTable,
+        dgh_depths: &HashMap<QuasiIdentifier, usize>,
+        dimension_tables: &DimensionTables,
+        k: u32,
+    ) -> Result<Vec<LatticeEntry>, AlgorithmError> {
+        let qis = QuasiIdentifiers(root.root.keys().cloned().collect());
 
-        let old_eid: Vec<i64> = df.column("EID")?.i64()?.into_iter().map(|v| v.unwrap()).collect();
-        let mut out_columns: Vec<Column> = vec![Column::new("PREV_EID".into(), old_eid)];
+        // marked := nodes shown k-anonymous via generalization property
+        #[allow(clippy::mutable_key_type)] // interior mutability is not accessed.
+        let mut marked: HashSet<LatticeEntry> = HashSet::default();
+        #[allow(clippy::mutable_key_type)] // interior mutability is not accessed.
+        let mut block: HashSet<LatticeEntry> = HashSet::default();
+        let mut successful: Vec<LatticeEntry> = Vec::default();
 
-        for attr in &qis.0 {
-            let col_name = attr.incognito_colname.clone();
-            let levels = root.height_at(attr.clone());
-            let raw = df.column(&col_name)?;
+        let mut queue: BinaryHeap<Reverse<LatticeEntry>> = BinaryHeap::default();
+        queue.push(Reverse(root));
 
-            let generalized: Column = match attr.qi_type {
-                QIType::Numerical { .. } => {
-                    let tax = taxonomy_man.numerical_taxonomies.get(&attr.column_name).unwrap();
-                    let struct_ = raw.struct_()?;
-                    let lo = struct_.field_by_name("low")?;
-                    let hi = struct_.field_by_name("high")?;
-                    let lo = lo.i64()?;
-                    let hi = hi.i64()?;
+        while let Some(Reverse(mut node)) = queue.pop() {
+            if marked.contains(&node) {
+                continue;
+            }
 
-                    let (lows, highs): (Vec<i64>, Vec<i64>) = lo
-                        .into_iter()
-                        .zip(hi.into_iter())
-                        .map(|(l, h)| {
-                            let mut range = (l.unwrap(), h.unwrap());
-                            for level in 0..levels {
-                                range = tax.generalize(range, level);
-                            }
-                            range
-                        })
-                        .unzip();
-
-                    StructChunked::from_series(
-                        col_name.clone().into(),
-                        lows.len(),
-                        [
-                            Series::new("low".into(), lows),
-                            Series::new("high".into(), highs),
-                        ]
-                            .iter(),
-                    )?
-                        .into_column()
-                }
-                QIType::Categorical { .. } => {
-                    let tax = taxonomy_man.categorical_taxonomies.get(&attr.column_name).unwrap();
-                    let strs = raw.str()?;
-
-                    let values: Vec<String> = strs
-                        .into_iter()
-                        .map(|s| {
-                            let mut category = s.unwrap().to_owned();
-                            for _ in 0..levels {
-                                category = tax.generalize(category);
-                            }
-                            category
-                        })
-                        .collect();
-
-                    Series::new(col_name.clone().into(), values).into_column()
-                }
+            let freq = if node.root.values().all(|&v| v == 0) {
+                root_freq.clone()
+            } else if let Some(ref parent) = node.parent {
+                Self::rollup_from_parent(&qis, &node.attr, &parent.freq_table, dimension_tables)?
+            } else {
+                Self::rollup(&qis, &node, &root_freq, dimension_tables)?
             };
 
-            out_columns.push(generalized);
+            let is_anonymous = freq.is_k_anonymous(k)?;
+            node.set_freq_table(Arc::new(freq));
+            if is_anonymous {
+                // mark every direct generalization of this node
+                for generalization in Self::direct_generalizations(&node, dgh_depths) {
+                    marked.insert(generalization);
+                }
+                successful.push(node);
+            } else {
+                for generalization in Self::direct_generalizations(&node, dgh_depths) {
+                    queue.push(Reverse(generalization));
+                }
+                block.insert(node);
+            }
         }
-
-        DataFrame::new(n_rows, out_columns)
+        successful.retain(|node| !block.contains(node));
+        Ok(successful)
     }
 
-    fn generalize(qis: QuasiIdentifiers, root: LatticeEntry, last_equi: &EquivTable, last_anon: &AnonTable, taxonomy_man: &TaxonomyManager, lattice_man: &mut LatticeManager, k: u32) -> Result<(), PolarsError> {
-        // [PREV_EID, ATT_0, ATT_1, ..., ATT_N]
-        let generalized = Self::apply_generalization(last_equi, &qis, &root, taxonomy_man)?;
+    // outgoing edges of node in the multi attribute generalization lattice.
+    fn direct_generalizations(
+        node: &LatticeEntry,
+        dgh_depths: &HashMap<QuasiIdentifier, usize>,
+    ) -> Vec<LatticeEntry> {
+        let mut attrs: Vec<QuasiIdentifier> = node.root.keys().cloned().collect();
+        attrs
+            .into_iter()
+            .filter(|qi| node.root[qi] < dgh_depths[qi])
+            .map(|qi| LatticeEntry::from_parent(node, qi))
+            .collect()
+    }
 
-        let qi_col_names: Vec<String> = qis
+    fn make_frequency_set(
+        qi_df: &DataFrame,
+        subset: QuasiIdentifiers,
+    ) -> PolarsResult<FrequencyTable> {
+        let att_cols: Vec<Expr> = subset
             .0
             .iter()
-            .map(|attr| attr.incognito_colname.clone())
+            .map(|attr| col(attr.incognito_colname.clone()))
             .collect();
 
-        let qi_cols: Vec<Expr> = qi_col_names.iter().map(col).collect();
- 
-        // [PREV_EID, NEW_EID, ATT_0, ATT_1, ..., ATT_N]
-        let eid_map = generalized
+        let df = qi_df
             .clone()
             .lazy()
-            .group_by([col("PREV_EID")]).agg([col(PlSmallStr::from_static("*")).item(false)])
-            .with_row_index(PlSmallStr::from_str("NEW_EID"), Some(1))
-            .collect()?;
- 
-        let curr_anon = AnonTable::from_remap(
-            qis.clone(),
-            last_anon,
-            &eid_map,
-        )?;
- 
-
-        let curr_equi_df = generalized.clone().lazy().join(eid_map.lazy(), [col("PREV_EID")], [col("PREV_EID")], JoinArgs::new(JoinType::Inner))
-            .lazy()
-            .rename(["NEW_EID"], ["EID"], true)
-            .drop(Selector::ByName { names: ["PREV_EID".into()].into(), strict: true })
+            .group_by(att_cols)
+            .agg([len().cast(DataType::UInt32).alias("count")])
             .collect()?;
 
-        let curr_equi = EquivTable {
-            qis: qis.clone(),
-            df: curr_equi_df,
-        };
- 
-        if curr_anon.is_k_anonymous(qis.clone(), k)? {
-            lattice_man.set_result_ok(curr_anon, curr_equi);
-        } else {
-            lattice_man.set_result_bad();
-        }
-        Ok(())
+        Ok(FrequencyTable { qis: subset, df })
     }
 
-    pub fn anonymize_impl(
-        mut anon: AnonTable,
-        mut equi: EquivTable,
-        mut lattice_man: LatticeManager,
-        taxonomy_man: TaxonomyManager,
-        qis: QuasiIdentifiers,
-        k: u32
-    ) -> Result<DataFrame, PolarsError> {
+    fn generalize_column(
+        lf: LazyFrame,
+        attr: &QuasiIdentifier,
+        dimension_tables: &DimensionTables,
+    ) -> LazyFrame {
+        let col_name = attr.incognito_colname.clone();
+        let dim_table = &dimension_tables[attr];
 
-        lattice_man.next_entry();
+        let edges = dim_table.clone().lazy().select([
+            col("from").alias(col_name.clone()),
+            col("to").alias("__next"),
+        ]);
 
-        if anon.is_k_anonymous(qis.clone(), k)? {
-            lattice_man.set_result_ok(anon.clone(), equi.clone());
-        } else {
-            lattice_man.set_result_bad();
-        }
+        lf.join(
+                edges,
+                [col(col_name.clone())],
+                [col(col_name.clone())],
+                JoinArgs::new(JoinType::Left),
+            ).with_column(coalesce(&[col("__next"), col(col_name.clone())]).alias(col_name))
+            .select([all().exclude_cols(["__next"]).as_expr()])
+    }
 
-        let mut seen: HashSet<String> = HashSet::default();
+    // faster version of rollup for when parent is known
+    fn rollup_from_parent(
+        qis: &QuasiIdentifiers,
+        changed_attr: &QuasiIdentifier,
+        parent_freq: &FrequencyTable,
+        dimension_tables: &DimensionTables,
+    ) -> PolarsResult<FrequencyTable> {
+        let lf = Self::generalize_column(
+            parent_freq.df.clone().lazy(),
+            changed_attr,
+            dimension_tables,
+        );
 
-        while lattice_man.has_next() {
-            let curr_root = lattice_man.next_entry();
-            if seen.insert(curr_root.to_string()) {
-                Self::generalize(qis.clone(), curr_root, &equi, &anon, &taxonomy_man, &mut lattice_man, k)?;
-            } else {
-                println!("Skipping {}", curr_root);
-                lattice_man.set_result_bad();
+        let att_cols: Vec<Expr> = qis
+            .0
+            .iter()
+            .map(|attr| col(attr.incognito_colname.clone()))
+            .collect();
+        let df = lf.group_by(att_cols).agg([col("count").sum()]).collect()?;
+
+        Ok(FrequencyTable {
+            qis: qis.clone(),
+            df,
+        })
+    }
+
+    /// generalize each attribute's distinct values, then regroup and `sum(count)`
+    fn rollup(
+        qis: &QuasiIdentifiers,
+        node: &LatticeEntry,
+        root_freq: &FrequencyTable,
+        dimension_tables: &DimensionTables,
+    ) -> PolarsResult<FrequencyTable> {
+        // this function is a bottleneck because of the df.collect() below.
+        let mut lf = root_freq.df.clone().lazy();
+        for attr in &qis.0 {
+            let levels = node.root[attr];
+            for _ in 0..levels {
+                lf = Self::generalize_column(lf, attr, dimension_tables);
             }
         }
 
-        let successful = lattice_man.get_successful();
-        if successful.is_empty() {
-            panic!(); // nothing worked
-        }
-        let selection = successful
+        let att_cols: Vec<Expr> = qis
+            .0
             .iter()
-            .min_by_key(|entry| {
-                entry.anon_table.df.clone().lazy().group_by([col("EID")]).agg([len()]).max().collect().unwrap().column("len").unwrap().u32().unwrap().first().unwrap()
+            .map(|attr| col(attr.incognito_colname.clone()))
+            .collect();
+        let df = lf.group_by(att_cols).agg([col("count").sum()]).collect()?;
+
+        Ok(FrequencyTable {
+            qis: qis.clone(),
+            df,
+        })
+    }
+
+    // apply `node` generalization to each row
+    fn materialize(
+        qi_df: &DataFrame,
+        resolve_id: &str,
+        qis: &QuasiIdentifiers,
+        node: &LatticeEntry,
+        dimension_tables: &DimensionTables,
+    ) -> PolarsResult<DataFrame> {
+        let mut lf = qi_df.clone().lazy();
+        for attr in &qis.0 {
+            let levels = node.root[attr];
+            for _ in 0..levels {
+                lf = Self::generalize_column(lf, attr, dimension_tables);
+            }
+        }
+
+        let select_cols: Vec<Expr> = std::iter::once(col(resolve_id.to_owned()))
+            .chain(qis.0.iter().map(|attr| col(attr.incognito_colname.clone())))
+            .collect();
+
+        lf.select(select_cols).collect()
+    }
+
+    fn expand_search(
+        entry: &LatticeEntry,
+        dgh_depths: &HashMap<QuasiIdentifier, usize>,
+    ) -> Vec<LatticeEntry> {
+        let mut attrs: Vec<QuasiIdentifier> = entry.root.keys().cloned().collect();
+        let ranges: Vec<Vec<usize>> = attrs
+            .par_iter()
+            .map(|a| (entry.root[a]..=dgh_depths[a]).collect())
+            .collect();
+
+        ranges
+            .into_iter()
+            .multi_cartesian_product()
+            .par_bridge()
+            .into_par_iter()
+            .map(|combo| {
+                let root: BTreeMap<_, _> = attrs.iter().cloned().zip(combo).collect();
+                let mut e = LatticeEntry::from_root(root, &QuasiIdentifiers(attrs.clone()));
+                e.parent = Some(Arc::new(entry.clone()));
+                e.set_freq_table(entry.freq_table.clone());
+                e
             })
-            .unwrap();
-        let mut result = selection.anon_table.dataframe().clone();
+            .collect()
+    }
 
+    fn generate_dimension_tables(dataset: &Dataset) -> Result<DimensionTables, PolarsError> {
+        let mut map: BTreeMap<QuasiIdentifier, usize> = BTreeMap::default();
+        let mut dim_tables: Vec<DataFrame> = Vec::with_capacity(
+            dataset.taxonomies.numerical_taxonomies.len()
+                + dataset.taxonomies.categorical_taxonomies.len(),
+        );
 
-        Ok(result)
+        for qi in &dataset.qis.0 {
+            match qi.qi_type {
+                QIType::Numerical { .. } => {
+                    #[allow(clippy::type_complexity)]
+                    // two columns, ranges. [current range (low, high), generalizes to range (low, high)]
+                    let from_to: (Vec<(i64, i64)>, Vec<(i64, i64)>) = dataset
+                        .taxonomies
+                        .numerical_taxonomies[&qi.column_name]
+                        .nodes
+                        .iter()
+                        .sorted_by_key(|(node_id, node)| Reverse(node.level))
+                        .map(|(node_id, node)| {
+                            node.parent.as_ref().map_or(
+                                (node.range.to_owned(), node.range.to_owned()),
+                                |parent_id| {
+                                    (
+                                        node.range.to_owned(),
+                                        dataset.taxonomies.numerical_taxonomies[&qi.column_name]
+                                            .nodes[parent_id]
+                                            .range
+                                            .to_owned(),
+                                    )
+                                },
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .unzip();
+
+                    assert!(from_to.0.len() == from_to.1.len());
+
+                    let from_low_high: (Vec<i64>, Vec<i64>) = from_to.0.into_iter().unzip();
+                    let to_low_high: (Vec<i64>, Vec<i64>) = from_to.1.into_iter().unzip();
+
+                    assert!(
+                        from_low_high.0.len() == from_low_high.1.len()
+                            && to_low_high.0.len() == to_low_high.1.len()
+                            && from_low_high.0.len() == to_low_high.0.len()
+                    );
+
+                    let mut df = DataFrame::new(
+                        from_low_high.0.len(),
+                        vec![
+                            StructChunked::from_series(
+                                "from".into(),
+                                from_low_high.0.len(),
+                                [
+                                    Series::new("low".into(), from_low_high.0),
+                                    Series::new("high".into(), from_low_high.1),
+                                ]
+                                .iter(),
+                            )?
+                            .into_column(),
+                            StructChunked::from_series(
+                                "to".into(),
+                                to_low_high.0.len(),
+                                [
+                                    Series::new("low".into(), to_low_high.0),
+                                    Series::new("high".into(), to_low_high.1),
+                                ]
+                                .iter(),
+                            )?
+                            .into_column(),
+                        ],
+                    )?;
+                    dim_tables.push(
+                        df.unique_impl(
+                            false,
+                            Some(vec![PlSmallStr::from("from")]),
+                            UniqueKeepStrategy::Any,
+                            None,
+                        )?
+                        .with_row_index("id".into(), None)?,
+                    );
+                    map.insert(qi.clone(), dim_tables.len() - 1);
+                }
+                QIType::Categorical { .. } => {
+                    let mut from_to: (Vec<String>, Vec<String>) =
+                        dataset.taxonomies.categorical_taxonomies[&qi.column_name]
+                            .nodes
+                            .iter()
+                            .flat_map(|(node_id, node)| {
+                                node.parent.as_ref().map(|parent_id| {
+                                    (
+                                        node.value.to_owned(),
+                                        dataset.taxonomies.categorical_taxonomies[&qi.column_name]
+                                            .nodes[parent_id]
+                                            .value
+                                            .to_owned(),
+                                    )
+                                })
+                            })
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .unzip();
+                    assert!(from_to.0.len() == from_to.1.len());
+                    dim_tables.push(
+                        DataFrame::new(
+                            from_to.0.len(),
+                            vec![
+                                Column::new("from".into(), from_to.0),
+                                Column::new("to".into(), from_to.1),
+                            ],
+                        )?
+                        .with_row_index("id".into(), None)?,
+                    );
+                    map.insert(qi.clone(), dim_tables.len() - 1);
+                }
+            }
+        }
+        Ok(DimensionTables::new(map, dim_tables))
     }
 }
