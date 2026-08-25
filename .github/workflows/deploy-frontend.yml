@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -40,11 +40,34 @@ jobs:
         run: npm run build
         working-directory: ./webpage/frontend
 
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+      - name: Configure Pages
+        if: github.event_name == 'push'
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages Artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: "./webpage/frontend/dist"
-      
+
       - name: Deploy to GitHub Pages
         id: deployment
+        if: github.event_name == 'push'
         uses: actions/deploy-pages@v4
+
+      # Preview Flow
+      - name: Deploy PR Preview
+        if: github.event_name == 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ./webpage/frontend/dist
+          branch: gh-pages
+          target-folder: preview/pr-${{ github.event.number }}
+
+      - name: Generate Preview URL Link
+        id: preview-url
+        if: github.event_name == 'pull_request'
+        run: |
+          # Base URL usually follows: https://<username>.github.io/<repo>/
+          # We dynamically format it to point to the PR subfolder
+          echo "url=${{ steps.deployment.outputs.page_url }}preview/pr-${{ github.event.number }}/" >> $GITHUB_OUTPUT
