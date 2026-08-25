@@ -1,12 +1,16 @@
 name: Deploy Frontend
+
 on:
-  pull_request: 
+  pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - main
+    paths:
+      - "webpage/frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
   push:
     branches: ["main"]
-    paths: 
+    paths:
       - "webpage/frontend/**"
       - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
@@ -17,13 +21,12 @@ permissions:
   id-token: write
 
 jobs:
-  build-deploy:
+  deploy-production:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,7 +34,7 @@ jobs:
           node-version: 24
           cache: 'npm'
           cache-dependency-path: './webpage/frontend/package-lock.json'
-
+      
       - name: install dependencies
         run: npm ci
         working-directory: ./webpage/frontend
@@ -40,34 +43,37 @@ jobs:
         run: npm run build
         working-directory: ./webpage/frontend
 
-      - name: Configure Pages
-        if: github.event_name == 'push'
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages Artifact
-        if: github.event_name == 'push'
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: "./webpage/frontend/dist"
 
       - name: Deploy to GitHub Pages
         id: deployment
-        if: github.event_name == 'push'
         uses: actions/deploy-pages@v4
 
-      # Preview Flow
+  deploy-preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: './webpage/frontend/package-lock.json'
+      
+      - name: install dependencies
+        run: npm ci
+        working-directory: ./webpage/frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: ./webpage/frontend
+
       - name: Deploy PR Preview
-        if: github.event_name == 'pull_request'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: ./webpage/frontend/dist
           branch: gh-pages
           target-folder: preview/pr-${{ github.event.number }}
-
-      - name: Generate Preview URL Link
-        id: preview-url
-        if: github.event_name == 'pull_request'
-        run: |
-          # Base URL usually follows: https://<username>.github.io/<repo>/
-          # We dynamically format it to point to the PR subfolder
-          echo "url=${{ steps.deployment.outputs.page_url }}preview/pr-${{ github.event.number }}/" >> $GITHUB_OUTPUT
