@@ -77,3 +77,19 @@ jobs:
           folder: ./webpage/frontend/dist
           branch: gh-pages
           target-folder: preview/pr-${{ github.event.number }}
+            - name: Output Preview URL
+      
+      - name: Get PR Preview URL
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO="${{ github.event.repository.name }}"
+          PR_NUM="${{ github.event.number }}"
+          
+          PREVIEW_URL="https://${OWNER}.github.io/${REPO}/preview/pr-${PR_NUM}/"
+          
+          echo "Preview deployed successfully"
+          echo "URL: $PREVIEW_URL"
+          
+          # This saves the URL to the GitHub Action Step Summary so it shows up on the run page
+          echo "### PR Preview Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "Your preview is available here: [$PREVIEW_URL]($PREVIEW_URL)" >> $GITHUB_STEP_SUMMARY
