@@ -4,7 +4,7 @@ import type { Profile } from "../util/consts/profiles";
 import { profile_bios } from "../util/consts/profiles";
 
 import './styles/BioModal.css';
-
+// pls
 const BioModal = () => {
     const navigate = useNavigate();
     const { name } = useParams();
