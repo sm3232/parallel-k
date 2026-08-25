@@ -31,11 +31,15 @@ jobs:
         run: |
           cd frontend
           npm ci
+        with:
+          path: "./webpage/frontend/dist"
 
       - name: Build
         run: |
           cd frontend
           npm run build
+        with:
+          path: "./webpage/frontend/dist"
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
