@@ -77,9 +77,8 @@ jobs:
           folder: ./webpage/frontend/dist
           branch: gh-pages
           target-folder: preview/pr-${{ github.event.number }}
-            - name: Output Preview URL
       
-      - name: Get PR Preview URL
+      - name: Output Preview URL
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           REPO="${{ github.event.repository.name }}"
