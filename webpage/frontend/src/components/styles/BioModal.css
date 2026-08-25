@@ -1,0 +1,61 @@
+.teammate_profile_container {
+    width: 95%;
+    height: 90vh;
+    position: relative;
+    box-sizing: border-box;
+
+    top: 2rem;
+    padding: 2rem;
+    margin: auto;
+    box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.1);
+
+    border-radius: 4px;
+    border: 2px solid #fdc55e;
+
+    background-color: #003c5f;
+}
+
+.return_button {
+    width: 2.5rem;
+    height: 2.5rem;
+
+    position: absolute;
+    top: -0.5rem;
+    left: -0.5rem;
+
+    border-radius: 50%;
+    border: 2px solid #fdc55e;
+
+    background-image: url('../../../public/icons/left-arrow.webp');
+    background-size: 70%;
+    background-repeat: no-repeat;
+    background-position-y: center;
+    background-position-x: 0.2rem;
+
+    transition: all 0.3s ease-in-out;
+}
+
+.return_button:hover {
+    transform: scale(1.1) translateX(5px);
+    border-radius: 10px;
+    background-image: url('../../../public/icons/left-arrow.png');
+    background-color: #fdc55e;
+}
+
+.return_button:active {
+    transform: scale(0.7);
+}
+
+.profile_header {
+    font-size: 2rem;
+    color: white;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.495);
+    padding-bottom: 0.5rem;
+}
+
+.profile_extra {
+    padding-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+}
