@@ -24,9 +24,6 @@ jobs:
   deploy-production:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,15 +40,12 @@ jobs:
         run: npm run build
         working-directory: ./webpage/frontend
 
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+      - name: Deploy Production to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: "./webpage/frontend/dist"
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
+          folder: ./webpage/frontend/dist
+          branch: gh-pages
+  
   deploy-preview:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
