@@ -1,0 +1,88 @@
+name: Deploy Frontend
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    paths:
+      - "webpage/frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "webpage/frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-production:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: './webpage/frontend/package-lock.json'
+      
+      - name: install dependencies
+        run: npm ci
+        working-directory: ./webpage/frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: ./webpage/frontend
+
+      - name: Deploy Production to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ./webpage/frontend/dist
+          branch: gh-pages
+  
+  deploy-preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: './webpage/frontend/package-lock.json'
+      
+      - name: install dependencies
+        run: npm ci
+        working-directory: ./webpage/frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: ./webpage/frontend
+
+      - name: Deploy PR Preview
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ./webpage/frontend/dist
+          branch: gh-pages
+          target-folder: preview/pr-${{ github.event.number }}
+      
+      - name: Output Preview URL
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO="${{ github.event.repository.name }}"
+          PR_NUM="${{ github.event.number }}"
+          
+          PREVIEW_URL="https://${OWNER}.github.io/${REPO}/preview/pr-${PR_NUM}/"
+          
+          echo "Preview deployed successfully"
+          echo "URL: $PREVIEW_URL"
+          
+          # This saves the URL to the GitHub Action Step Summary so it shows up on the run page
+          echo "### PR Preview Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "Your preview is available here: [$PREVIEW_URL]($PREVIEW_URL)" >> $GITHUB_STEP_SUMMARY

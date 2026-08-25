@@ -1,0 +1,33 @@
+body,
+html,
+#root {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+
+    background-color: #003c5f;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+
+    scroll-behavior: smooth;
+}
+
+/* ScrollBar */
+::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.1rem;
+}
+  
+::-webkit-scrollbar-thumb {
+    background: gray;
+    border-radius: 0.6px;
+}
+  
+::-webkit-scrollbar-track {   
+    background: white;
+    width: 0.4rem;
+}
