@@ -19,7 +19,7 @@
 .logo_image {
     width: 2rem;
     height: 2rem;
-    background-image: url('../../../public/icons/champlain_icon.png');
+    background-image: url('/icons/champlain_icon.png');
     background-size: 100%;
     background-repeat: no-repeat;
 

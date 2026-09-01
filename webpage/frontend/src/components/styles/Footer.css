@@ -16,7 +16,7 @@
     height: 6rem;
     position: absolute;
     top: 0.25rem;
-    background-image: url('../../../public/bezierFooter.svg');
+    background-image: url('/bezierFooter.svg');
     background-size: 100% 100%;
     background-repeat: no-repeat;
 }
@@ -26,7 +26,7 @@
     height: 4rem;
     margin-top: 1rem;
     margin-left: 1rem;
-    background-image: url('../../../public/icons/champlain_icon.png');
+    background-image: url('/icons/champlain_icon.png');
 
     background-repeat: no-repeat;
     background-size: contain;
