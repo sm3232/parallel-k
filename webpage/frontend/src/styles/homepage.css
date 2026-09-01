@@ -18,7 +18,7 @@
     bottom: 0;
     z-index: -1;
 
-    background-image: url('../../public/background_bezier.webp');
+    background-image: url('/background_bezier.webp');
     background-size: cover;
     background-repeat: no-repeat;
     background-position-y: 10rem;

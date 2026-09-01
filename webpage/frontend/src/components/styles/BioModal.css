@@ -26,7 +26,7 @@
     border-radius: 50%;
     border: 2px solid #fdc55e;
 
-    background-image: url('../../../public/icons/left-arrow.webp');
+    background-image: url('/icons/left-arrow.webp');
     background-size: 70%;
     background-repeat: no-repeat;
     background-position-y: center;
@@ -38,7 +38,7 @@
 .return_button:hover {
     transform: scale(1.1) translateX(5px);
     border-radius: 10px;
-    background-image: url('../../../public/icons/left-arrow.png');
+    background-image: url('/icons/left-arrow.png');
     background-color: #fdc55e;
 }
 
